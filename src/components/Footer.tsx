@@ -6,11 +6,16 @@ export function Footer() {
           <p className="font-medium text-zinc-900">SetupStack</p>
           <p>Modern setup guides for developer teams.</p>
         </div>
-        <div className="flex flex-wrap gap-6 text-xs uppercase tracking-[0.18em] text-zinc-500">
-          <span>Privacy</span>
-          <span>Docs</span>
-          <span>Status</span>
-          <span>Contact</span>
+        <div className="text-xs text-zinc-500">
+          © {new Date().getFullYear()}{" "}
+          <a
+            href="https://github.com/adsalihac"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-zinc-700 transition hover:text-zinc-900"
+          >
+            adsalihac
+          </a>
         </div>
       </div>
     </footer>
