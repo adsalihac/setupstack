@@ -1,88 +1,57 @@
-# Setup Stack
+# SetupStack
 
-**Setup Stack** is a clean, modern developer tool that generates tailored environment setup guides based on your chosen stack, operating system, and development tools.
+SetupStack is a local-first setup guide generator for developer environments. Pick a stack, choose an operating system, select the tools you actually need, and the app builds a tailored step-by-step guide with commands, checks, and troubleshooting help.
 
-Stop copy-pasting fragmented tutorials from different sources. SetupStack gives you a single, unified, production-ready setup guide in seconds — complete with terminal commands, install scripts, and a progress checklist.
+It is designed to replace scattered setup notes with one focused workflow that is easy to follow, easy to export, and easy to revisit later.
 
----
+## Features
 
-## What It Does
+SetupStack currently supports:
 
-1. **Select your stack** — Expo, React Native, Flutter, Node.js, Python, Go, Rust
-2. **Select your OS** — macOS, Windows, or Linux
-3. **Select your tools** — Only tools relevant to your stack are shown (e.g., Expo shows Android Studio, Xcode, Expo Orbit; Rust stays minimal)
-4. **Get your guide** — A step-by-step setup guide is generated instantly with:
-   - System foundations
-   - Runtime & SDK installation
-   - Developer tool setup
-   - Environment configuration
-   - Verification commands
-   - Estimated setup time
+- Stack presets for Expo, React Native, Flutter, Node.js, Python, Go, and Rust
+- Operating system selection for macOS, Windows, and Linux
+- Stack-aware tool filtering so only relevant tools appear for the selected stack
+- Runtime channel choice between LTS and Latest for supported stacks
+- Auto-detected OS defaults when the browser can identify the platform
+- Step-by-step setup sections for system foundations, runtime setup, tools, environment config, and verification
+- Preflight checks to catch common issues before setup starts
+- Stack-specific troubleshooting guides with suggested fixes and commands
+- Install script generation for the selected tools on macOS, Windows, or Linux
+- Markdown export and browser print/PDF export
+- Progress tracking for setup steps
+- Saved presets for reusing common configurations
+- LocalStorage persistence for selections and presets
+- Search with `Ctrl/Cmd + K` to jump into tool filtering quickly
 
-### Key Features
+## How It Works
 
-- 📋 **Progress checklist** — Mark steps as done as you go
-- 📦 **Install script generator** — Brew, Winget, or Apt one-liners for your selected tools
-- 📄 **Export as Markdown or PDF** — Save and share your guide
-- 💾 **LocalStorage persistence** — Your selections are saved automatically
-- ⌨️ **Ctrl/Cmd + K** — Focus the tool search instantly
-- 🔄 **Stack-aware tool filtering** — Switching stacks resets selections to keep guides clean
+1. Select a stack.
+2. Select an operating system.
+3. Pick the tools you want from the filtered list.
+4. Review the generated guide, install commands, preflight checks, and troubleshooting notes.
 
----
+The generated output includes setup sections, verification commands, and a time estimate based on the stack and selected tools.
 
 ## Tech Stack
 
-| Layer      | Technology                          |
-|------------|-------------------------------------|
-| Framework  | Next.js 16 (App Router)             |
-| Language   | TypeScript                          |
-| Styling    | Tailwind CSS v4                     |
-| Animation  | Framer Motion                       |
-| Fonts      | Geist Sans + Geist Mono             |
+| Layer | Technology |
+| --- | --- |
+| Framework | Next.js 16 (App Router) |
+| Language | TypeScript |
+| Styling | Tailwind CSS v4 |
+| Motion | Framer Motion |
+| Icons | react-icons |
 
-No UI component libraries. All components are custom-built with Tailwind CSS.
-
----
-
-## Project Structure
-
-```
-src/
-├── app/
-│   ├── page.tsx          # Main app page (all steps)
-│   ├── layout.tsx        # Root layout & metadata
-│   ├── icon.svg          # App favicon/icon
-│   └── globals.css       # Global styles & CSS variables
-├── components/
-│   ├── Navbar.tsx
-│   ├── Footer.tsx
-│   ├── Button.tsx
-│   ├── Card.tsx
-│   ├── StackCard.tsx
-│   ├── OSCard.tsx
-│   ├── ToolCard.tsx
-│   ├── CommandBlock.tsx
-│   ├── SetupSection.tsx
-│   ├── ProgressTracker.tsx
-│   └── SearchBar.tsx
-├── hooks/
-│   └── useLocalStorage.ts
-└── lib/
-    ├── data.ts           # Stacks, OS options, tools, commands, stack-tool map
-    ├── types.ts          # TypeScript types
-    └── utils.ts          # Setup section builder, export, time estimator
-```
-
----
+All UI is custom-built in this repository. There is no external component library.
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 20+
-- npm, yarn, pnpm, or bun
+- Node.js 20 or newer
+- npm
 
-### Installation
+### Install
 
 ```bash
 git clone https://github.com/adsalihac/setupstack.git
@@ -90,68 +59,42 @@ cd setupstack
 npm install
 ```
 
-### Development
+### Run Locally
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Then open [http://localhost:3000](http://localhost:3000).
 
-### Build
+### Other Commands
 
 ```bash
 npm run build
 npm run start
-```
-
-### Lint
-
-```bash
 npm run lint
 ```
 
----
+## Project Structure
+
+```
+src/
+├── app/          # App router entry, layout, and global styles
+├── components/   # UI building blocks for the setup flow
+├── hooks/        # LocalStorage helper hook
+└── lib/          # Data, types, and setup/export utilities
+```
 
 ## Contributing
 
-Contributions are welcome and appreciated! Here's how to get involved:
+Contributions are welcome. Good places to extend the app are:
 
-### Ways to Contribute
+- Add a new stack in `src/lib/data.ts` and `src/lib/types.ts`
+- Add new tool definitions and stack mappings in `src/lib/data.ts`
+- Adjust generated sections or export behavior in `src/lib/utils.ts`
+- Improve the experience in `src/app/page.tsx` or the components under `src/components/`
 
-- 🐛 **Bug reports** — Open an issue with steps to reproduce
-- 💡 **Feature requests** — Open an issue describing the improvement
-- 🔧 **Code contributions** — Fork, branch, and open a PR
-- 📝 **New stacks or tools** — Add entries to `src/lib/data.ts`
-
-### Adding a New Stack
-
-1. Add the stack entry to the `stacks` array in `src/lib/data.ts`
-2. Add its `StackId` to `src/lib/types.ts`
-3. Add OS-specific commands to `stackCommands`
-4. Add verification commands to `verificationCommands`
-5. Add relevant tool IDs to `stackToolMap`
-
-### Adding a New Tool
-
-1. Add the tool entry to the `tools` array in `src/lib/data.ts`
-2. Add its `ToolId` to `src/lib/types.ts`
-3. Add the tool to relevant stacks in `stackToolMap`
-
-### Pull Request Guidelines
-
-- Keep PRs focused and small
-- Follow the existing code style (TypeScript strict, no UI libraries)
-- Run `npm run lint && npm run build` before opening a PR — both must pass
-- Write a clear PR description explaining what and why
-
-### Development Notes
-
-- All components are in `src/components/` — no shadcn, no MUI, no Bootstrap
-- State is managed with `useState` + `useLocalStorage` — no external state library
-- The linter enforces `react-hooks/set-state-in-effect` — avoid calling `setState` directly inside `useEffect`
-
----
+Before opening a PR, run `npm run lint` and `npm run build`.
 
 ## License
 
