@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
@@ -23,8 +23,10 @@ import {
 } from "@/lib/data";
 import type { OSId, StackId, ToolId } from "@/lib/types";
 import {
+  buildGuideCopy,
   buildInstallScripts,
   buildSetupSections,
+  copyToClipboard,
   formatMinutes,
   getBaseEstimate,
   sumEstimates,
@@ -35,6 +37,12 @@ const STEPS = [
   { id: 2, label: "OS" },
   { id: 3, label: "Tools" },
   { id: 4, label: "Setup Guide" },
+] as const;
+
+const INSTALL_OPTIONS = [
+  { id: "macos", label: "Brew" },
+  { id: "windows", label: "Winget" },
+  { id: "linux", label: "Apt" },
 ] as const;
 
 const variants = {
@@ -52,6 +60,7 @@ export default function Home() {
   const [completedSteps, setCompletedSteps] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [installOS, setInstallOS] = useState<OSId>("macos");
+  const [guideCopyStatus, setGuideCopyStatus] = useState<"idle" | "copied" | "error">("idle");
   const searchRef = useRef<HTMLInputElement | null>(null);
 
   const stack = stacks.find((s) => s.id === selectedStackId) ?? null;
@@ -96,11 +105,23 @@ export default function Home() {
     [selectedToolObjects]
   );
 
+  const installLabel =
+    INSTALL_OPTIONS.find((item) => item.id === installOS)?.label ?? "Install";
+  const installCommands = installScripts[installOS].length
+    ? installScripts[installOS]
+    : ['echo "Select tools to generate scripts"'];
+
   const estimatedTime = useMemo(() => {
     if (!stack || !os) return "—";
     const base = getBaseEstimate(os.id);
     return formatMinutes(sumEstimates(stack, selectedToolObjects, base));
   }, [os, selectedToolObjects, stack]);
+
+  useEffect(() => {
+    if (guideCopyStatus === "idle") return;
+    const timeout = window.setTimeout(() => setGuideCopyStatus("idle"), 1500);
+    return () => window.clearTimeout(timeout);
+  }, [guideCopyStatus]);
 
   const goToStep = (next: 1 | 2 | 3 | 4) => {
     setDirection(next > currentStep ? 1 : -1);
@@ -148,6 +169,27 @@ export default function Home() {
 
   const handleExport = () => {
     window.print();
+  };
+
+  const handleCopyGuide = async () => {
+    if (!stack || !os) return;
+    const payload = buildGuideCopy({
+      stackName: stack.name,
+      osName: os.name,
+      tools: selectedToolObjects,
+      sections: setupSections,
+      estimatedTime,
+      installLabel,
+      installCommands,
+      troubleshooting,
+    });
+    try {
+      await copyToClipboard(payload);
+      setGuideCopyStatus("copied");
+    } catch (error) {
+      console.error("Failed to copy guide", error);
+      setGuideCopyStatus("error");
+    }
   };
 
   const maxUnlocked: number =
@@ -445,13 +487,7 @@ export default function Home() {
                           <p className="mt-2 text-lg font-semibold text-zinc-900">Brew, Winget, and Apt scripts</p>
                         </div>
                         <div className="flex gap-2 rounded-full border border-zinc-200 bg-white p-1">
-                          {(
-                            [
-                              { id: "macos", label: "Brew" },
-                              { id: "windows", label: "Winget" },
-                              { id: "linux", label: "Apt" },
-                            ] as const
-                          ).map((item) => (
+                          {INSTALL_OPTIONS.map((item) => (
                             <button
                               key={item.id}
                               type="button"
@@ -468,11 +504,7 @@ export default function Home() {
                       <div className="mt-4">
                         <CommandBlock
                           label="Install script"
-                          commands={
-                            installScripts[installOS].length
-                              ? installScripts[installOS]
-                              : ['echo "Select tools to generate scripts"']
-                          }
+                          commands={installCommands}
                         />
                       </div>
                     </Card>

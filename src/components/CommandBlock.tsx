@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Button } from "./Button";
+import { copyToClipboard } from "@/lib/utils";
 
 type CommandBlockProps = {
   commands: string[];
@@ -7,17 +8,22 @@ type CommandBlockProps = {
 };
 
 export function CommandBlock({ commands, label }: CommandBlockProps) {
-  const [copied, setCopied] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
 
   useEffect(() => {
-    if (!copied) return;
-    const timeout = window.setTimeout(() => setCopied(false), 1500);
+    if (copyStatus === "idle") return;
+    const timeout = window.setTimeout(() => setCopyStatus("idle"), 1500);
     return () => window.clearTimeout(timeout);
-  }, [copied]);
+  }, [copyStatus]);
 
   const copyAll = async () => {
-    await navigator.clipboard.writeText(commands.join("\n"));
-    setCopied(true);
+    try {
+      await copyToClipboard(commands.join("\n"));
+      setCopyStatus("copied");
+    } catch (error) {
+      console.error("Failed to copy commands", error);
+      setCopyStatus("error");
+    }
   };
 
   return (
@@ -33,7 +39,7 @@ export function CommandBlock({ commands, label }: CommandBlockProps) {
           variant="ghost"
           className="text-zinc-200 hover:text-white hover:bg-white/10"
         >
-          {copied ? "Copied" : "Copy"}
+          {copyStatus === "copied" ? "Copied" : copyStatus === "error" ? "Copy failed" : "Copy"}
         </Button>
       </div>
       <div className="space-y-2 px-4 py-4 font-mono text-[13px] leading-6 text-zinc-100">
