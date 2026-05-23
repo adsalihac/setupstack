@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { Button } from "./Button";
 
 export function Navbar() {
@@ -10,16 +9,33 @@ export function Navbar() {
     <header className="sticky top-0 z-30 border-b border-zinc-200/70 bg-white/80 backdrop-blur">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4 lg:px-8">
         <div className="flex items-center gap-3">
-          <Image
-            src="/logo.svg"
-            alt="SetupStack logo"
-            width={36}
-            height={36}
-            className="h-9 w-9"
-            priority
-          />
+          {/* Brand mark */}
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-900">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 18 18"
+              fill="none"
+              aria-hidden="true"
+            >
+              {/* Terminal prompt › */}
+              <path
+                d="M3 5.5L7 9l-4 3.5"
+                stroke="white"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M9 13h6"
+                stroke="white"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+              />
+            </svg>
+          </div>
           <div>
-            <p className="text-sm font-semibold text-zinc-900">Setup Stack</p>
+            <p className="text-sm font-semibold text-zinc-900">SetupStack</p>
             <p className="text-xs text-zinc-500">Developer setup platform</p>
           </div>
         </div>
@@ -52,3 +68,4 @@ export function Navbar() {
     </header>
   );
 }
+

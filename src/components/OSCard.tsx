@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import type { OSOption } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { osIcons } from "@/lib/icons";
 
 type OSCardProps = {
   os: OSOption;
@@ -9,6 +10,7 @@ type OSCardProps = {
 };
 
 export function OSCard({ os, selected, onSelect }: OSCardProps) {
+  const Icon = osIcons[os.id];
   return (
     <motion.button
       type="button"
@@ -26,13 +28,13 @@ export function OSCard({ os, selected, onSelect }: OSCardProps) {
       <div className="flex items-center gap-4">
         <div
           className={cn(
-            "flex h-11 w-11 items-center justify-center rounded-xl border text-[11px] font-semibold tracking-wide",
+            "flex h-11 w-11 items-center justify-center rounded-xl border",
             selected
               ? "border-zinc-900/30 bg-zinc-900 text-white"
-              : "border-zinc-200 bg-zinc-50 text-zinc-700"
+              : "border-zinc-200 bg-zinc-50 text-zinc-600"
           )}
         >
-          {os.short}
+          <Icon size={22} />
         </div>
         <div>
           <p className="text-sm font-semibold text-zinc-900">{os.name}</p>
@@ -42,3 +44,4 @@ export function OSCard({ os, selected, onSelect }: OSCardProps) {
     </motion.button>
   );
 }
+

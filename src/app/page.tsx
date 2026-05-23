@@ -24,7 +24,6 @@ import {
 import type { OSId, StackId, ToolId } from "@/lib/types";
 import {
   buildInstallScripts,
-  buildMarkdownExport,
   buildSetupSections,
   formatMinutes,
   getBaseEstimate,
@@ -147,23 +146,8 @@ export default function Home() {
     );
   };
 
-  const handleExport = (type: "markdown" | "pdf") => {
-    if (!stack || !os) return;
-    if (type === "pdf") { window.print(); return; }
-    const markdown = buildMarkdownExport({
-      stackName: stack.name,
-      osName: os.name,
-      tools: selectedToolObjects,
-      sections: setupSections,
-      estimatedTime,
-    });
-    const blob = new Blob([markdown], { type: "text/markdown" });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `setupstack-${stack.id}-${os.id}.md`;
-    link.click();
-    window.URL.revokeObjectURL(url);
+  const handleExport = () => {
+    window.print();
   };
 
   const maxUnlocked: number =
@@ -439,10 +423,7 @@ export default function Home() {
                           <p className="mt-2 text-2xl font-semibold text-zinc-900">{estimatedTime}</p>
                         </div>
                         <div className="flex gap-3">
-                          <Button variant="secondary" size="sm" onClick={() => handleExport("markdown")}>
-                            Export Markdown
-                          </Button>
-                          <Button variant="outline" size="sm" onClick={() => handleExport("pdf")}>
+                          <Button variant="outline" size="sm" onClick={handleExport}>
                             Export PDF
                           </Button>
                         </div>

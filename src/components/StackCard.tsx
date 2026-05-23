@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import type { Stack } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { stackIcons } from "@/lib/icons";
 
 type StackCardProps = {
   stack: Stack;
@@ -9,6 +10,7 @@ type StackCardProps = {
 };
 
 export function StackCard({ stack, selected, onSelect }: StackCardProps) {
+  const Icon = stackIcons[stack.id];
   return (
     <motion.button
       type="button"
@@ -26,13 +28,13 @@ export function StackCard({ stack, selected, onSelect }: StackCardProps) {
       <div className="flex items-center gap-4">
         <div
           className={cn(
-            "flex h-11 w-11 items-center justify-center rounded-xl border text-xs font-semibold tracking-wide",
+            "flex h-11 w-11 items-center justify-center rounded-xl border",
             selected
               ? "border-zinc-900/30 bg-zinc-900 text-white"
-              : "border-zinc-200 bg-zinc-50 text-zinc-700"
+              : "border-zinc-200 bg-zinc-50 text-zinc-600"
           )}
         >
-          {stack.short}
+          <Icon size={22} />
         </div>
         <div>
           <p className="text-sm font-semibold text-zinc-900">{stack.name}</p>
@@ -42,3 +44,4 @@ export function StackCard({ stack, selected, onSelect }: StackCardProps) {
     </motion.button>
   );
 }
+
