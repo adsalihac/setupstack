@@ -610,6 +610,118 @@ export default function Home() {
           </div>
         </section>
 
+        <section className="mb-12 space-y-4">
+          {caseTemplateLibrary.length ? (
+            <Card className="p-5">
+              <details className="group" name="app-case-library">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-zinc-900">App case library</p>
+                  <span className="text-xs text-zinc-500 transition-colors group-open:text-zinc-700">
+                    {caseTemplateLibrary.length} templates · Expand
+                  </span>
+                </summary>
+                <div className="mt-4 space-y-3">
+                  {caseTemplateLibrary.map((template) => {
+                    const templateStack = stacks.find((item) => item.id === template.stackId);
+                    const templateOS = operatingSystems.find((item) => item.id === template.osId);
+                    const hasNotes = Boolean(
+                      template.notes?.summary || template.notes?.links?.length
+                    );
+                    return (
+                      <div
+                        key={template.id}
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 px-4 py-3 text-sm"
+                      >
+                        <div>
+                          <p className="font-semibold text-zinc-900">{template.name}</p>
+                          <p className="text-xs text-zinc-500">{template.description}</p>
+                          <p className="text-xs text-zinc-500">
+                            {template.category} · {templateStack?.name ?? template.stackId} ·{" "}
+                            {templateOS?.name ?? template.osId} · {template.tools.length} tools ·{" "}
+                            {template.runtimeChannel.toUpperCase()}
+                            {hasNotes ? " · Notes included" : ""}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleApplyCaseTemplate(template)}
+                          >
+                            Use case
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </details>
+            </Card>
+          ) : null}
+
+          <Card className="p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-semibold text-zinc-900">Repo-aware profile</p>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Paste repo files to auto-pick a stack, tools, and setup notes.
+                </p>
+              </div>
+              <span className="text-xs text-zinc-400">Local-only analysis</span>
+            </div>
+            <div className="mt-4 grid gap-3">
+              <textarea
+                rows={4}
+                placeholder="package.json (optional)"
+                value={repoPackageJson}
+                onChange={(event) => setRepoPackageJson(event.target.value)}
+                className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-xs text-zinc-700 outline-none focus:border-zinc-400"
+              />
+              <textarea
+                rows={3}
+                placeholder="docker-compose.yml (optional)"
+                value={repoDockerCompose}
+                onChange={(event) => setRepoDockerCompose(event.target.value)}
+                className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-xs text-zinc-700 outline-none focus:border-zinc-400"
+              />
+              <textarea
+                rows={3}
+                placeholder=".env.example (optional)"
+                value={repoEnvExample}
+                onChange={(event) => setRepoEnvExample(event.target.value)}
+                className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-xs text-zinc-700 outline-none focus:border-zinc-400"
+              />
+            </div>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <Button size="sm" variant="outline" onClick={handleAnalyzeRepo}>
+                Analyze repo
+              </Button>
+              <span className="text-xs text-zinc-400">
+                Nothing is uploaded. Everything stays in your browser.
+              </span>
+            </div>
+            {repoProfileStatus === "error" ? (
+              <p className="mt-3 text-xs text-rose-500">
+                Add a valid package.json or select a stack before analyzing.
+              </p>
+            ) : repoProfileStatus === "applied" ? (
+              <p className="mt-3 text-xs text-emerald-600">Repo profile applied.</p>
+            ) : null}
+            {repoProfile ? (
+              <div className="mt-4 rounded-xl border border-zinc-200 bg-zinc-50/50 px-4 py-3 text-xs text-zinc-600">
+                <p className="font-semibold text-zinc-800">
+                  Detected {repoProfileStack?.name ?? repoProfile.stackId} · {repoProfile.tools.length} tools
+                </p>
+                <p className="mt-1 text-zinc-500">
+                  Sources: {repoProfile.sources.join(", ")}
+                  {repoProfile.services.length ? ` · Services: ${repoProfile.services.join(", ")}` : ""}
+                  {repoProfile.envKeys.length ? ` · Env vars: ${repoProfile.envKeys.length}` : ""}
+                </p>
+              </div>
+            ) : null}
+          </Card>
+        </section>
+
         {/* Stepper */}
         <div id="stacks" className="mb-8 flex scroll-mt-28 items-center gap-1">
           {STEPS.map((step, i) => {
@@ -1252,117 +1364,6 @@ export default function Home() {
           </AnimatePresence>
         </div>
 
-        <section className="mt-12 space-y-4">
-          {caseTemplateLibrary.length ? (
-            <Card className="p-5">
-              <details className="group" name="app-case-library">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
-                  <p className="text-sm font-semibold text-zinc-900">App case library</p>
-                  <span className="text-xs text-zinc-500 transition-colors group-open:text-zinc-700">
-                    {caseTemplateLibrary.length} templates · Expand
-                  </span>
-                </summary>
-                <div className="mt-4 space-y-3">
-                  {caseTemplateLibrary.map((template) => {
-                    const templateStack = stacks.find((item) => item.id === template.stackId);
-                    const templateOS = operatingSystems.find((item) => item.id === template.osId);
-                    const hasNotes = Boolean(
-                      template.notes?.summary || template.notes?.links?.length
-                    );
-                    return (
-                      <div
-                        key={template.id}
-                        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 px-4 py-3 text-sm"
-                      >
-                        <div>
-                          <p className="font-semibold text-zinc-900">{template.name}</p>
-                          <p className="text-xs text-zinc-500">{template.description}</p>
-                          <p className="text-xs text-zinc-500">
-                            {template.category} · {templateStack?.name ?? template.stackId} ·{" "}
-                            {templateOS?.name ?? template.osId} · {template.tools.length} tools ·{" "}
-                            {template.runtimeChannel.toUpperCase()}
-                            {hasNotes ? " · Notes included" : ""}
-                          </p>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleApplyCaseTemplate(template)}
-                          >
-                            Use case
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </details>
-            </Card>
-          ) : null}
-
-          <Card className="p-5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <p className="text-sm font-semibold text-zinc-900">Repo-aware profile</p>
-                <p className="mt-1 text-xs text-zinc-500">
-                  Paste repo files to auto-pick a stack, tools, and setup notes.
-                </p>
-              </div>
-              <span className="text-xs text-zinc-400">Local-only analysis</span>
-            </div>
-            <div className="mt-4 grid gap-3">
-              <textarea
-                rows={4}
-                placeholder="package.json (optional)"
-                value={repoPackageJson}
-                onChange={(event) => setRepoPackageJson(event.target.value)}
-                className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-xs text-zinc-700 outline-none focus:border-zinc-400"
-              />
-              <textarea
-                rows={3}
-                placeholder="docker-compose.yml (optional)"
-                value={repoDockerCompose}
-                onChange={(event) => setRepoDockerCompose(event.target.value)}
-                className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-xs text-zinc-700 outline-none focus:border-zinc-400"
-              />
-              <textarea
-                rows={3}
-                placeholder=".env.example (optional)"
-                value={repoEnvExample}
-                onChange={(event) => setRepoEnvExample(event.target.value)}
-                className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-xs text-zinc-700 outline-none focus:border-zinc-400"
-              />
-            </div>
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <Button size="sm" variant="outline" onClick={handleAnalyzeRepo}>
-                Analyze repo
-              </Button>
-              <span className="text-xs text-zinc-400">
-                Nothing is uploaded. Everything stays in your browser.
-              </span>
-            </div>
-            {repoProfileStatus === "error" ? (
-              <p className="mt-3 text-xs text-rose-500">
-                Add a valid package.json or select a stack before analyzing.
-              </p>
-            ) : repoProfileStatus === "applied" ? (
-              <p className="mt-3 text-xs text-emerald-600">Repo profile applied.</p>
-            ) : null}
-            {repoProfile ? (
-              <div className="mt-4 rounded-xl border border-zinc-200 bg-zinc-50/50 px-4 py-3 text-xs text-zinc-600">
-                <p className="font-semibold text-zinc-800">
-                  Detected {repoProfileStack?.name ?? repoProfile.stackId} · {repoProfile.tools.length} tools
-                </p>
-                <p className="mt-1 text-zinc-500">
-                  Sources: {repoProfile.sources.join(", ")}
-                  {repoProfile.services.length ? ` · Services: ${repoProfile.services.join(", ")}` : ""}
-                  {repoProfile.envKeys.length ? ` · Env vars: ${repoProfile.envKeys.length}` : ""}
-                </p>
-              </div>
-            ) : null}
-          </Card>
-        </section>
       </main>
       <Footer />
     </div>
