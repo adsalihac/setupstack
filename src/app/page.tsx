@@ -13,11 +13,13 @@ import { SearchBar } from "@/components/SearchBar";
 import { SetupSection } from "@/components/SetupSection";
 import { StackCard } from "@/components/StackCard";
 import { ToolCard } from "@/components/ToolCard";
+import { TroubleshootingSection } from "@/components/TroubleshootingSection";
 import {
   operatingSystems,
   stackToolMap,
   stacks,
   toolLookup,
+  troubleshootingGuides,
 } from "@/lib/data";
 import type { OSId, StackId, ToolId } from "@/lib/types";
 import {
@@ -83,6 +85,11 @@ export default function Home() {
         ? buildSetupSections({ stack, osId: os.id, tools: selectedToolObjects })
         : [],
     [os, selectedToolObjects, stack]
+  );
+
+  const troubleshooting = useMemo(
+    () => (stack ? troubleshootingGuides[stack.id] : null),
+    [stack]
   );
 
   const installScripts = useMemo(
@@ -492,6 +499,21 @@ export default function Home() {
                         />
                       ))}
                     </div>
+
+                    {troubleshooting && (
+                      <div className="border-t border-zinc-100 pt-10">
+                        <div className="mb-6 flex flex-col gap-2">
+                          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-zinc-400">
+                            Troubleshooting
+                          </p>
+                          <h3 className="text-xl font-semibold text-zinc-900">Common issues</h3>
+                          <p className="text-sm text-zinc-500">
+                            Known issues for {stack.name} with step-by-step fixes.
+                          </p>
+                        </div>
+                        <TroubleshootingSection items={troubleshooting} />
+                      </div>
+                    )}
                   </div>
 
                   <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">

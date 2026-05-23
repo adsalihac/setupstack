@@ -50,3 +50,16 @@ export type SetupSection = {
   description: string;
   commands: string[];
 };
+
+export type TroubleshootingIssue = {
+  id: string;
+  title: string;
+  symptom: string;
+  fix: string;
+  commands?: string[];
+};
+
+export type TroubleshootingGuide = {
+  stackId: StackId;
+  issues: TroubleshootingIssue[];
+};

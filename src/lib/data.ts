@@ -321,3 +321,369 @@ export const toolLookup: Record<ToolId, Tool> = tools.reduce((acc, tool) => {
   acc[tool.id] = tool;
   return acc;
 }, {} as Record<ToolId, Tool>);
+
+export type TroubleshootingItem = {
+  issue: string;
+  cause: string;
+  fix: string[];
+};
+
+export const troubleshootingGuides: Record<StackId, TroubleshootingItem[]> = {
+  expo: [
+    {
+      issue: "Metro bundler won't start or hangs",
+      cause: "Stale cache or conflicting process on port 8081.",
+      fix: [
+        "npx expo start --clear",
+        "npx react-native start --reset-cache",
+        "lsof -ti:8081 | xargs kill -9",
+      ],
+    },
+    {
+      issue: "Expo Go can't connect to dev server",
+      cause: "Phone and computer are on different networks, or firewall is blocking.",
+      fix: [
+        "# Ensure both devices are on the same Wi-Fi network",
+        "npx expo start --tunnel",
+        "# Or use USB connection: npx expo start --localhost",
+      ],
+    },
+    {
+      issue: "iOS build fails: CocoaPods error",
+      cause: "Pods not installed or out of date after adding a new native module.",
+      fix: [
+        "cd ios && pod install --repo-update",
+        "# If still failing, clean and reinstall",
+        "cd ios && rm -rf Pods Podfile.lock && pod install",
+      ],
+    },
+    {
+      issue: "Android emulator not detected",
+      cause: "ANDROID_HOME not set or emulator not running.",
+      fix: [
+        'export ANDROID_HOME=$HOME/Library/Android/sdk',
+        'export PATH=$PATH:$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools',
+        "# Start an emulator from Android Studio first",
+        "adb devices",
+      ],
+    },
+    {
+      issue: "EAS build fails with missing credentials",
+      cause: "Not logged in to Expo or missing app.json configuration.",
+      fix: [
+        "eas login",
+        "eas credentials",
+        "# Ensure app.json has a valid 'slug' and 'owner' field",
+      ],
+    },
+    {
+      issue: "Watchman error: too many files to watch",
+      cause: "Default inotify limit too low on Linux.",
+      fix: [
+        "echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf",
+        "sudo sysctl -p",
+        "watchman watch-del-all",
+      ],
+    },
+  ],
+  "react-native": [
+    {
+      issue: "Metro bundler fails to resolve module",
+      cause: "Broken node_modules or missing package.",
+      fix: [
+        "rm -rf node_modules && npm install",
+        "npx react-native start --reset-cache",
+      ],
+    },
+    {
+      issue: "iOS build: 'Unable to boot simulator'",
+      cause: "Xcode simulator runtime not installed.",
+      fix: [
+        "# Open Xcode → Preferences → Platforms and install the iOS runtime",
+        "xcrun simctl list devices",
+        "npx react-native run-ios --simulator='iPhone 15'",
+      ],
+    },
+    {
+      issue: "Android build: SDK location not found",
+      cause: "ANDROID_HOME or local.properties missing.",
+      fix: [
+        'echo "sdk.dir=$HOME/Library/Android/sdk" > android/local.properties',
+        'export ANDROID_HOME=$HOME/Library/Android/sdk',
+        'export PATH=$PATH:$ANDROID_HOME/platform-tools',
+      ],
+    },
+    {
+      issue: "Gradle build fails: Java version mismatch",
+      cause: "React Native requires Java 17 for newer versions.",
+      fix: [
+        "java -version",
+        "# macOS: brew install openjdk@17",
+        "# Set JAVA_HOME: export JAVA_HOME=$(/usr/libexec/java_home -v 17)",
+      ],
+    },
+    {
+      issue: "Red screen: 'Invariant Violation'",
+      cause: "Native module not linked or app not rebuilt after native change.",
+      fix: [
+        "cd ios && pod install && cd ..",
+        "npx react-native run-ios",
+        "# For Android: cd android && ./gradlew clean && cd .. && npx react-native run-android",
+      ],
+    },
+  ],
+  flutter: [
+    {
+      issue: "flutter doctor reports issues",
+      cause: "Missing dependencies, licenses not accepted, or SDK paths incorrect.",
+      fix: [
+        "flutter doctor -v",
+        "flutter doctor --android-licenses",
+        "# Accept all licenses with 'y'",
+        "sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer",
+      ],
+    },
+    {
+      issue: "iOS build: CocoaPods not installed",
+      cause: "CocoaPods is required for Flutter iOS builds.",
+      fix: [
+        "sudo gem install cocoapods",
+        "cd ios && pod install",
+        "pod --version",
+      ],
+    },
+    {
+      issue: "Android license not accepted",
+      cause: "Android SDK licenses must be accepted before building.",
+      fix: [
+        "flutter doctor --android-licenses",
+        "# If that fails:",
+        "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses",
+      ],
+    },
+    {
+      issue: "'No devices found' when running flutter run",
+      cause: "No emulator running or physical device not detected.",
+      fix: [
+        "flutter devices",
+        "flutter emulators --launch <emulator_id>",
+        "# For physical device: enable USB debugging in Developer Options",
+        "adb devices",
+      ],
+    },
+    {
+      issue: "Pub get fails: SSL certificate error",
+      cause: "Corporate proxy or VPN interfering with pub.dev.",
+      fix: [
+        "flutter pub cache clean",
+        "flutter pub get",
+        "# Behind a proxy: set PUB_HOSTED_URL and FLUTTER_STORAGE_BASE_URL",
+      ],
+    },
+  ],
+  node: [
+    {
+      issue: "nvm command not found after install",
+      cause: "Shell profile not reloaded after nvm installation.",
+      fix: [
+        "source ~/.zshrc   # or source ~/.bashrc",
+        "# Verify nvm in your shell profile:",
+        'grep -n "nvm" ~/.zshrc',
+        "nvm --version",
+      ],
+    },
+    {
+      issue: "EACCES: permission denied on npm install -g",
+      cause: "npm global prefix points to a system directory.",
+      fix: [
+        "# Fix: use nvm (recommended) or change npm prefix",
+        'mkdir ~/.npm-global',
+        'npm config set prefix ~/.npm-global',
+        'echo \'export PATH=~/.npm-global/bin:$PATH\' >> ~/.zshrc',
+        "source ~/.zshrc",
+      ],
+    },
+    {
+      issue: "Port 3000 already in use",
+      cause: "Another process is using the same port.",
+      fix: [
+        "lsof -ti:3000 | xargs kill -9",
+        "# Or change your app port:",
+        "PORT=3001 node server.js",
+      ],
+    },
+    {
+      issue: "node_modules/.bin not found / scripts not running",
+      cause: "Corrupted node_modules or wrong Node version.",
+      fix: [
+        "rm -rf node_modules package-lock.json",
+        "nvm use --lts",
+        "npm install",
+      ],
+    },
+    {
+      issue: "TypeScript: Cannot find module or type declarations",
+      cause: "Missing @types package or tsconfig path not configured.",
+      fix: [
+        "npm install -D @types/node @types/express",
+        "# Verify tsconfig.json has 'moduleResolution: node'",
+        "npx tsc --noEmit",
+      ],
+    },
+  ],
+  python: [
+    {
+      issue: "pyenv: command not found",
+      cause: "pyenv not added to shell PATH or profile not reloaded.",
+      fix: [
+        'export PYENV_ROOT="$HOME/.pyenv"',
+        'export PATH="$PYENV_ROOT/bin:$PATH"',
+        'eval "$(pyenv init -)"',
+        "source ~/.zshrc",
+        "pyenv --version",
+      ],
+    },
+    {
+      issue: "pip SSL: certificate verify failed",
+      cause: "macOS system Python has broken SSL certificates.",
+      fix: [
+        "# Run the certificate installer (macOS):",
+        "open /Applications/Python*/Install\\ Certificates.command",
+        "# Or upgrade pip:",
+        "python3 -m pip install --upgrade pip certifi",
+      ],
+    },
+    {
+      issue: "Virtual environment not activating",
+      cause: "Wrong activation command for your shell/OS.",
+      fix: [
+        "# macOS / Linux:",
+        "python3 -m venv .venv && source .venv/bin/activate",
+        "# Windows CMD:",
+        ".venv\\Scripts\\activate.bat",
+        "# Windows PowerShell:",
+        ".venv\\Scripts\\Activate.ps1",
+      ],
+    },
+    {
+      issue: "Poetry: command not found after install",
+      cause: "Poetry installs to ~/.local/bin which may not be in PATH.",
+      fix: [
+        'export PATH="$HOME/.local/bin:$PATH"',
+        "source ~/.zshrc",
+        "poetry --version",
+      ],
+    },
+    {
+      issue: "ModuleNotFoundError despite pip install",
+      cause: "Installed into wrong Python environment or virtualenv not active.",
+      fix: [
+        "which python3   # verify you're in the right venv",
+        "pip list | grep <package-name>",
+        "# Activate venv first, then reinstall:",
+        "source .venv/bin/activate && pip install <package>",
+      ],
+    },
+  ],
+  go: [
+    {
+      issue: "go: command not found",
+      cause: "Go binary not in PATH after installation.",
+      fix: [
+        'export PATH=$PATH:/usr/local/go/bin',
+        "source ~/.zshrc",
+        "go version",
+      ],
+    },
+    {
+      issue: "go get: module lookup disabled by GONOSUMCHECK",
+      cause: "Private module or GONOSUMCHECK/GONOSUMDB misconfigured.",
+      fix: [
+        "go env GONOSUMCHECK",
+        "go env -w GONOSUMCHECK='*'",
+        "# For private repos:",
+        "go env -w GOPRIVATE='github.com/your-org/*'",
+      ],
+    },
+    {
+      issue: "Air: live reload not triggering",
+      cause: "Air config not found or watching wrong directory.",
+      fix: [
+        "air init   # generate .air.toml",
+        "# Edit .air.toml to set correct root and tmp_dir",
+        "air -c .air.toml",
+      ],
+    },
+    {
+      issue: "CGO_ENABLED build error on Linux",
+      cause: "CGO requires gcc which may not be installed.",
+      fix: [
+        "sudo apt install -y build-essential gcc",
+        "CGO_ENABLED=1 go build ./...",
+        "# To build without CGO: CGO_ENABLED=0 go build ./...",
+      ],
+    },
+    {
+      issue: "go test fails: database connection refused",
+      cause: "Test requires a running database service.",
+      fix: [
+        "# Start PostgreSQL:",
+        "brew services start postgresql@16   # macOS",
+        "sudo systemctl start postgresql     # Linux",
+        "# Use Docker for test databases:",
+        "docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=test postgres:16",
+      ],
+    },
+  ],
+  rust: [
+    {
+      issue: "rustup: command not found",
+      cause: "Cargo/rustup not added to PATH after installation.",
+      fix: [
+        "source $HOME/.cargo/env",
+        'echo \'source $HOME/.cargo/env\' >> ~/.zshrc',
+        "rustc --version && cargo --version",
+      ],
+    },
+    {
+      issue: "Linking error: linker 'cc' not found (Linux)",
+      cause: "gcc/build-essential not installed.",
+      fix: [
+        "sudo apt install -y build-essential",
+        "cargo build",
+      ],
+    },
+    {
+      issue: "Slow compile times",
+      cause: "Incremental compilation cache cold or too many dependencies.",
+      fix: [
+        "# Use sccache to cache builds:",
+        "cargo install sccache",
+        'export RUSTC_WRAPPER=sccache',
+        "# Use mold linker (Linux) for faster linking:",
+        "sudo apt install mold",
+        "# In .cargo/config.toml: [target.x86_64-unknown-linux-gnu] linker = 'clang' rustflags = [\"-C\", \"link-arg=-fuse-ld=mold\"]",
+      ],
+    },
+    {
+      issue: "error[E0597]: does not live long enough (borrow checker)",
+      cause: "Lifetime issue — a reference outlives the value it points to.",
+      fix: [
+        "# Common fix: clone the value instead of borrowing",
+        "let owned = borrowed_value.to_owned();",
+        "# Or restructure to ensure the owner lives long enough",
+        "# Read: https://doc.rust-lang.org/book/ch10-03-lifetime-syntax.html",
+      ],
+    },
+    {
+      issue: "cargo test: thread panicked",
+      cause: "Test assertion failed or unwrap on None/Err.",
+      fix: [
+        "cargo test -- --nocapture   # show println! output",
+        "cargo test -- --test-threads=1   # run tests serially",
+        "RUST_BACKTRACE=1 cargo test   # full backtrace",
+      ],
+    },
+  ],
+};
+
