@@ -61,6 +61,12 @@ const variants = {
   center: { opacity: 1, x: 0 },
   exit: (dir: number) => ({ opacity: 0, x: dir * -48 }),
 };
+const STEP_SECTION_IDS = {
+  1: "stacks",
+  2: "step-2",
+  3: "step-3",
+  4: "step-4",
+} as const;
 
 type Preset = {
   id: string;
@@ -100,6 +106,7 @@ export default function Home() {
     []
   );
   const searchRef = useRef<HTMLInputElement | null>(null);
+  const pendingScrollStepRef = useRef<1 | 2 | 3 | 4 | null>(null);
 
   const detectedOS = useMemo(() => detectOS(), []);
   const detectedShell = useMemo(() => detectShell(detectedOS), [detectedOS]);
@@ -211,7 +218,20 @@ export default function Home() {
     return () => window.clearTimeout(timeout);
   }, [repoProfileStatus]);
 
+  const scrollToStepSection = (step: 1 | 2 | 3 | 4) => {
+    globalThis.requestAnimationFrame(() => {
+      document
+        .getElementById(STEP_SECTION_IDS[step])
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
+
   const goToStep = (next: 1 | 2 | 3 | 4) => {
+    if (next === currentStep) {
+      scrollToStepSection(next);
+      return;
+    }
+    pendingScrollStepRef.current = next;
     setDirection(next > currentStep ? 1 : -1);
     setCurrentStep(next);
   };
@@ -767,10 +787,20 @@ export default function Home() {
 
         {/* Slider */}
         <div className="overflow-hidden">
-          <AnimatePresence mode="wait" custom={direction}>
+          <AnimatePresence
+            mode="wait"
+            custom={direction}
+            onExitComplete={() => {
+              const nextStep = pendingScrollStepRef.current;
+              if (!nextStep) return;
+              pendingScrollStepRef.current = null;
+              scrollToStepSection(nextStep);
+            }}
+          >
 
             {currentStep === 1 && (
               <motion.section
+                id={STEP_SECTION_IDS[1]}
                 key="step1"
                 custom={direction}
                 variants={variants}
@@ -778,7 +808,7 @@ export default function Home() {
                 animate="center"
                 exit="exit"
                 transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
-                className="pb-12"
+                className="scroll-mt-28 py-12"
               >
                 <div className="flex flex-col gap-3">
                   <p className="text-xs font-semibold uppercase tracking-[0.3em] text-zinc-400">Step 1 of 4</p>
@@ -838,6 +868,7 @@ export default function Home() {
 
             {currentStep === 2 && (
               <motion.section
+                id={STEP_SECTION_IDS[2]}
                 key="step2"
                 custom={direction}
                 variants={variants}
@@ -845,7 +876,7 @@ export default function Home() {
                 animate="center"
                 exit="exit"
                 transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
-                className="py-12"
+                className="scroll-mt-28 py-12"
               >
                 <div className="flex flex-col gap-3">
                   <p className="text-xs font-semibold uppercase tracking-[0.3em] text-zinc-400">Step 2 of 4</p>
@@ -892,6 +923,7 @@ export default function Home() {
 
             {currentStep === 3 && (
               <motion.section
+                id={STEP_SECTION_IDS[3]}
                 key="step3"
                 custom={direction}
                 variants={variants}
@@ -899,7 +931,7 @@ export default function Home() {
                 animate="center"
                 exit="exit"
                 transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
-                className="py-12"
+                className="scroll-mt-28 py-12"
               >
                 <div className="flex flex-wrap items-end justify-between gap-6">
                   <div className="flex flex-col gap-3">
@@ -968,6 +1000,7 @@ export default function Home() {
 
             {currentStep === 4 && stack && os && (
               <motion.section
+                id={STEP_SECTION_IDS[4]}
                 key="step4"
                 custom={direction}
                 variants={variants}
@@ -975,7 +1008,7 @@ export default function Home() {
                 animate="center"
                 exit="exit"
                 transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
-                className="py-12"
+                className="scroll-mt-28 py-12"
               >
                 <div className="flex flex-col gap-3">
                   <p className="text-xs font-semibold uppercase tracking-[0.3em] text-zinc-400">Step 4 of 4</p>
