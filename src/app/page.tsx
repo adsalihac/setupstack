@@ -166,7 +166,7 @@ export default function Home() {
           <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,#f4f4f5,transparent_60%)]" />
           <div className="grid gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-zinc-400">SetupStack</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-zinc-400">Setup Stack</p>
               <h1 className="mt-4 text-4xl font-semibold tracking-tight text-zinc-950 sm:text-5xl">
                 Set Up Your Developer Machine Faster
               </h1>
@@ -321,7 +321,7 @@ export default function Home() {
                   <p className="text-xs font-semibold uppercase tracking-[0.3em] text-zinc-400">Step 2 of 4</p>
                   <h2 className="text-2xl font-semibold text-zinc-900">Select your OS</h2>
                   <p className="text-sm text-zinc-600">
-                    SetupStack adapts install scripts for your operating system.
+                    Setup Stack adapts install scripts for your operating system.
                   </p>
                 </div>
                 <div className="mt-8 grid gap-4 md:grid-cols-3">

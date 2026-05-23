@@ -1,6 +1,6 @@
-# SetupStack
+# Setup Stack
 
-**SetupStack** is a clean, modern developer tool that generates tailored environment setup guides based on your chosen stack, operating system, and development tools.
+**Setup Stack** is a clean, modern developer tool that generates tailored environment setup guides based on your chosen stack, operating system, and development tools.
 
 Stop copy-pasting fragmented tutorials from different sources. SetupStack gives you a single, unified, production-ready setup guide in seconds — complete with terminal commands, install scripts, and a progress checklist.
 

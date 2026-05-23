@@ -35,7 +35,7 @@ export function Navbar() {
             </svg>
           </div>
           <div>
-            <p className="text-sm font-semibold text-zinc-900">SetupStack</p>
+            <p className="text-sm font-semibold text-zinc-900">Setup Stack</p>
             <p className="text-xs text-zinc-500">Developer setup platform</p>
           </div>
         </div>

@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SetupStack — Developer Environment Setup",
+  title: "Setup Stack — Developer Environment Setup",
   description:
     "Generate clean, professional setup guides for developer stacks, operating systems, and tools.",
 };
