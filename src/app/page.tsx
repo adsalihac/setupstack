@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
@@ -14,8 +14,13 @@ import { SetupSection } from "@/components/SetupSection";
 import { StackCard } from "@/components/StackCard";
 import { ToolCard } from "@/components/ToolCard";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import { operatingSystems, stacks, tools as allTools } from "@/lib/data";
-import type { OSId, ToolId } from "@/lib/types";
+import {
+  operatingSystems,
+  stackToolMap,
+  stacks,
+  toolLookup,
+} from "@/lib/data";
+import type { OSId, StackId, ToolId } from "@/lib/types";
 import {
   buildInstallScripts,
   buildMarkdownExport,
@@ -39,26 +44,32 @@ export default function Home() {
 
   const [search, setSearch] = useState("");
   const [installOS, setInstallOS] = useState<OSId>(selectedOS);
+  const searchRef = useRef<HTMLInputElement | null>(null);
 
   const stack = stacks.find((item) => item.id === selectedStackId) ?? stacks[0];
   const os =
     operatingSystems.find((item) => item.id === selectedOS) ??
     operatingSystems[0];
 
+  const stackTools = useMemo(
+    () => stackToolMap[stack.id].map((id) => toolLookup[id]),
+    [stack.id]
+  );
+
   const filteredTools = useMemo(() => {
-    if (!search.trim()) return allTools;
+    if (!search.trim()) return stackTools;
     const query = search.toLowerCase();
-    return allTools.filter(
+    return stackTools.filter(
       (tool) =>
         tool.name.toLowerCase().includes(query) ||
         tool.description.toLowerCase().includes(query) ||
         tool.category.toLowerCase().includes(query)
     );
-  }, [search]);
+  }, [search, stackTools]);
 
   const selectedToolObjects = useMemo(
-    () => allTools.filter((tool) => selectedTools.includes(tool.id)),
-    [selectedTools]
+    () => stackTools.filter((tool) => selectedTools.includes(tool.id)),
+    [selectedTools, stackTools]
   );
 
   const setupSections = useMemo(
@@ -89,6 +100,14 @@ export default function Home() {
     );
   };
 
+  const handleSelectStack = (id: StackId) => {
+    if (id === stack.id) return;
+    setSelectedStackId(id);
+    setSelectedTools([]);
+    setCompletedSteps([]);
+    setSearch("");
+  };
+
   const handleSelectOS = (id: OSId) => {
     setSelectedOS(id);
     setInstallOS(id);
@@ -100,6 +119,27 @@ export default function Home() {
         ? current.filter((id) => id !== stepId)
         : [...current, stepId]
     );
+  };
+
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        event.key.toLowerCase() === "k"
+      ) {
+        event.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  }, []);
+
+  const scrollToSection = (id: string) => {
+    document.getElementById(id)?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
   };
 
   const handleExport = (type: "markdown" | "pdf") => {
@@ -141,10 +181,6 @@ export default function Home() {
                 Generate clean setup guides for your development stack, operating
                 system, and tools.
               </p>
-              <div className="mt-8 flex flex-wrap gap-3">
-                <Button>Get Started</Button>
-                <Button variant="secondary">Explore Stacks</Button>
-              </div>
               <div className="mt-10 flex flex-wrap gap-6 text-sm text-zinc-500">
                 <div>
                   <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">
@@ -227,7 +263,7 @@ export default function Home() {
                 key={item.id}
                 stack={item}
                 selected={item.id === stack.id}
-                onSelect={setSelectedStackId}
+                onSelect={handleSelectStack}
               />
             ))}
           </div>
@@ -274,6 +310,7 @@ export default function Home() {
             </div>
             <div className="w-full max-w-sm">
               <SearchBar
+                ref={searchRef}
                 placeholder="Search tools"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}

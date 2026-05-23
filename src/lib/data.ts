@@ -172,6 +172,31 @@ export const tools: Tool[] = [
   },
 ];
 
+export const stackToolMap: Record<StackId, ToolId[]> = {
+  expo: [
+    "vscode",
+    "android-studio",
+    "xcode",
+    "expo-orbit",
+    "postman",
+    "git",
+    "warp",
+  ],
+  "react-native": [
+    "vscode",
+    "android-studio",
+    "xcode",
+    "postman",
+    "git",
+    "warp",
+  ],
+  flutter: ["vscode", "android-studio", "xcode", "postman", "git", "warp"],
+  node: ["vscode", "postman", "docker", "git", "warp"],
+  python: ["vscode", "postman", "docker", "git", "warp"],
+  go: ["vscode", "postman", "docker", "git", "warp"],
+  rust: ["vscode", "git", "warp"],
+};
+
 export const stackCommands: Record<StackId, Record<OSId, string[]>> = {
   expo: {
     macos: [
