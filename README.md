@@ -21,6 +21,7 @@ SetupStack currently supports:
 - Progress tracking for setup steps
 - Saved presets for reusing common configurations
 - App case templates for frontend, backend, full-stack, and app-based workflows
+- Repo-aware profiles that analyze package.json, docker-compose, and env templates
 - LocalStorage persistence for selections and presets
 - Search with `Ctrl/Cmd + K` to jump into tool filtering quickly
 

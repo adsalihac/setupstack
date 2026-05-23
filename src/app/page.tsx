@@ -23,7 +23,7 @@ import {
   toolLookup,
   troubleshootingGuides,
 } from "@/lib/data";
-import type { CaseTemplate, OSId, RuntimeChannel, StackId, ToolId } from "@/lib/types";
+import type { CaseTemplate, OSId, RepoProfile, RuntimeChannel, StackId, ToolId } from "@/lib/types";
 import {
   buildGuideCopy,
   buildInstallScripts,
@@ -90,6 +90,11 @@ export default function Home() {
   const [presetName, setPresetName] = useState("");
   const [presetStatus, setPresetStatus] = useState<"idle" | "saved" | "error">("idle");
   const [activeCaseTemplateId, setActiveCaseTemplateId] = useState<string | null>(null);
+  const [repoPackageJson, setRepoPackageJson] = useState("");
+  const [repoDockerCompose, setRepoDockerCompose] = useState("");
+  const [repoEnvExample, setRepoEnvExample] = useState("");
+  const [repoProfileStatus, setRepoProfileStatus] = useState<"idle" | "applied" | "error">("idle");
+  const [repoProfile, setRepoProfile] = useState<RepoProfile | null>(null);
   const { value: presets, setValue: setPresets } = useLocalStorage<Preset[]>(
     "setupstack-presets",
     []
@@ -110,6 +115,11 @@ export default function Home() {
   const activeCaseTemplate = useMemo(
     () => caseTemplateLibrary.find((template) => template.id === activeCaseTemplateId) ?? null,
     [activeCaseTemplateId]
+  );
+
+  const repoProfileStack = useMemo(
+    () => (repoProfile ? stacks.find((item) => item.id === repoProfile.stackId) ?? null : null),
+    [repoProfile]
   );
 
   const filteredTools = useMemo(() => {
@@ -195,6 +205,12 @@ export default function Home() {
     return () => window.clearTimeout(timeout);
   }, [presetStatus]);
 
+  useEffect(() => {
+    if (repoProfileStatus === "idle") return;
+    const timeout = window.setTimeout(() => setRepoProfileStatus("idle"), 2000);
+    return () => window.clearTimeout(timeout);
+  }, [repoProfileStatus]);
+
   const goToStep = (next: 1 | 2 | 3 | 4) => {
     setDirection(next > currentStep ? 1 : -1);
     setCurrentStep(next);
@@ -203,6 +219,8 @@ export default function Home() {
   const handleSelectStack = (id: StackId) => {
     setSelectedStackId(id);
     setActiveCaseTemplateId(null);
+    setRepoProfile(null);
+    setRepoProfileStatus("idle");
     const autoOS = detectedOS ?? null;
     setSelectedOS(autoOS);
     setInstallOS(autoOS ?? "macos");
@@ -216,6 +234,8 @@ export default function Home() {
   const handleSelectOS = (id: OSId) => {
     setSelectedOS(id);
     setActiveCaseTemplateId(null);
+    setRepoProfile(null);
+    setRepoProfileStatus("idle");
     setInstallOS(id);
     setPrefilledOS(false);
     setSelectedTools([]);
@@ -228,6 +248,8 @@ export default function Home() {
       prev.includes(toolId) ? prev.filter((id) => id !== toolId) : [...prev, toolId]
     );
     setActiveCaseTemplateId(null);
+    setRepoProfile(null);
+    setRepoProfileStatus("idle");
   };
 
   const handleReset = () => {
@@ -242,6 +264,11 @@ export default function Home() {
     setPrefilledOS(false);
     setPresetName("");
     setActiveCaseTemplateId(null);
+    setRepoProfile(null);
+    setRepoProfileStatus("idle");
+    setRepoPackageJson("");
+    setRepoDockerCompose("");
+    setRepoEnvExample("");
   };
 
   const toggleStep = (stepId: string) => {
@@ -266,6 +293,7 @@ export default function Home() {
       preflightChecks,
       caseNotes: activeCaseTemplate?.notes,
       caseChecklist,
+      repoProfile: repoProfile ?? undefined,
     });
 
     try {
@@ -298,6 +326,7 @@ export default function Home() {
       preflightChecks,
       caseNotes: activeCaseTemplate?.notes,
       caseChecklist,
+      repoProfile: repoProfile ?? undefined,
     });
     try {
       await copyToClipboard(payload);
@@ -334,6 +363,138 @@ export default function Home() {
     setPresetStatus("saved");
   };
 
+  const parsePackageJson = (raw: string) => {
+    const parsed = JSON.parse(raw) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+      scripts?: Record<string, string>;
+    };
+    const dependencies = Object.keys(parsed.dependencies ?? {});
+    const devDependencies = Object.keys(parsed.devDependencies ?? {});
+    const scripts = Object.keys(parsed.scripts ?? {});
+    return { deps: [...dependencies, ...devDependencies], scripts };
+  };
+
+  const parseEnvKeys = (raw: string) => {
+    const keys = new Set<string>();
+    raw.split(/\r?\n/).forEach((line) => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) return;
+      const normalized = trimmed.startsWith("export ") ? trimmed.slice(7) : trimmed;
+      const match = normalized.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*=/);
+      if (match?.[1]) keys.add(match[1]);
+    });
+    return Array.from(keys);
+  };
+
+  const handleAnalyzeRepo = () => {
+    const packageText = repoPackageJson.trim();
+    const composeText = repoDockerCompose.trim();
+    const envText = repoEnvExample.trim();
+    if (!packageText && !composeText && !envText) {
+      setRepoProfileStatus("error");
+      return;
+    }
+
+    const sources: string[] = [];
+    const detectedTools = new Set<ToolId>();
+    const notes = new Set<string>();
+    const services = new Set<string>();
+    let stackCandidate: StackId | null = selectedStackId;
+
+    if (packageText) {
+      sources.push("package.json");
+      try {
+        const parsed = parsePackageJson(packageText);
+        const depSet = new Set(parsed.deps);
+        if (depSet.has("expo")) stackCandidate = "expo";
+        else if (depSet.has("react-native")) stackCandidate = "react-native";
+        else if (depSet.size > 0) stackCandidate = "node";
+
+        if (depSet.has("next")) notes.add("Next.js detected in package.json.");
+        if (depSet.has("vite")) notes.add("Vite detected in package.json.");
+        if (depSet.has("prisma")) notes.add("Prisma detected; run migrations before starting the API.");
+        if (depSet.has("turbo") || depSet.has("nx")) {
+          notes.add("Monorepo tooling detected (Turbo/Nx).");
+        }
+
+        if (depSet.has("eslint") || depSet.has("prettier") || depSet.has("eslint-config-prettier")) {
+          detectedTools.add("eslint-prettier");
+        }
+        if (depSet.has("tailwindcss")) detectedTools.add("tailwind");
+        if (depSet.has("vitest")) detectedTools.add("vitest");
+        if (depSet.has("playwright") || depSet.has("@playwright/test")) detectedTools.add("playwright");
+        if (depSet.has("storybook") || parsed.deps.some((dep) => dep.startsWith("@storybook/"))) {
+          detectedTools.add("storybook");
+        }
+        if (depSet.has("pg") || depSet.has("pg-native")) detectedTools.add("postgres");
+        if (depSet.has("redis") || depSet.has("ioredis")) detectedTools.add("redis");
+      } catch (error) {
+        console.error("Failed to parse package.json", error);
+        setRepoProfileStatus("error");
+        return;
+      }
+    }
+
+    if (composeText) {
+      sources.push("docker-compose.yml");
+      detectedTools.add("docker");
+      notes.add("docker-compose.yml detected; start services with `docker compose up -d`.");
+      const lowerCompose = composeText.toLowerCase();
+      if (lowerCompose.includes("postgres")) {
+        detectedTools.add("postgres");
+        services.add("Postgres");
+      }
+      if (lowerCompose.includes("redis")) {
+        detectedTools.add("redis");
+        services.add("Redis");
+      }
+      if (lowerCompose.includes("mongo")) services.add("MongoDB");
+      if (lowerCompose.includes("mysql")) services.add("MySQL");
+      if (lowerCompose.includes("kafka")) services.add("Kafka");
+    }
+
+    const envKeys = envText ? parseEnvKeys(envText) : [];
+    if (envText) {
+      sources.push(".env.example");
+      if (envKeys.length) {
+        notes.add(`Found ${envKeys.length} env vars in .env.example.`);
+      }
+    }
+
+    if (!stackCandidate) {
+      setRepoProfileStatus("error");
+      return;
+    }
+
+    const availableTools = stackToolMap[stackCandidate];
+    const mergedTools = Array.from(new Set([...availableTools, ...Array.from(detectedTools)])).filter(
+      (toolId) => availableTools.includes(toolId)
+    );
+
+    const resolvedOS = detectedOS ?? selectedOS ?? "macos";
+    setSelectedStackId(stackCandidate);
+    setSelectedOS(resolvedOS);
+    setInstallOS(resolvedOS);
+    setSelectedTools(mergedTools);
+    setRuntimeChannel("lts");
+    setCompletedSteps([]);
+    setSearch("");
+    setPrefilledOS(Boolean(detectedOS));
+    setActiveCaseTemplateId(null);
+
+    setRepoProfile({
+      stackId: stackCandidate,
+      tools: mergedTools,
+      notes: Array.from(notes),
+      services: Array.from(services),
+      envKeys,
+      sources,
+    });
+    setRepoProfileStatus("applied");
+    goToStep(4);
+  };
+
   const handleApplyCaseTemplate = (template: CaseTemplate) => {
     const availableTools = stackToolMap[template.stackId];
     const filteredTools = template.tools.filter((toolId) => availableTools.includes(toolId));
@@ -347,11 +508,15 @@ export default function Home() {
     setSearch("");
     setPrefilledOS(false);
     setActiveCaseTemplateId(template.id);
+    setRepoProfile(null);
+    setRepoProfileStatus("idle");
     goToStep(4);
   };
 
   const handleApplyPreset = (preset: Preset) => {
     setActiveCaseTemplateId(null);
+    setRepoProfile(null);
+    setRepoProfileStatus("idle");
     setSelectedStackId(preset.stackId);
     setSelectedOS(preset.osId);
     setInstallOS(preset.osId);
@@ -556,53 +721,6 @@ export default function Home() {
                     />
                   ))}
                 </div>
-                {caseTemplateLibrary.length ? (
-                  <Card className="mt-8 p-5">
-                    <details className="group" name="app-case-library">
-                      <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
-                        <p className="text-sm font-semibold text-zinc-900">App case library</p>
-                        <span className="text-xs text-zinc-500 transition-colors group-open:text-zinc-700">
-                          {caseTemplateLibrary.length} templates · Expand
-                        </span>
-                      </summary>
-                      <div className="mt-4 space-y-3">
-                        {caseTemplateLibrary.map((template) => {
-                          const templateStack = stacks.find((item) => item.id === template.stackId);
-                          const templateOS = operatingSystems.find((item) => item.id === template.osId);
-                          const hasNotes = Boolean(
-                            template.notes?.summary || template.notes?.links?.length
-                          );
-                          return (
-                            <div
-                              key={template.id}
-                              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 px-4 py-3 text-sm"
-                            >
-                              <div>
-                                <p className="font-semibold text-zinc-900">{template.name}</p>
-                                <p className="text-xs text-zinc-500">{template.description}</p>
-                                <p className="text-xs text-zinc-500">
-                                  {template.category} · {templateStack?.name ?? template.stackId} ·{" "}
-                                  {templateOS?.name ?? template.osId} · {template.tools.length} tools ·{" "}
-                                  {template.runtimeChannel.toUpperCase()}
-                                  {hasNotes ? " · Notes included" : ""}
-                                </p>
-                              </div>
-                              <div className="flex gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleApplyCaseTemplate(template)}
-                                >
-                                  Use case
-                                </Button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </details>
-                  </Card>
-                ) : null}
               </motion.section>
             )}
 
@@ -811,6 +929,62 @@ export default function Home() {
                         {RUNTIME_CHANNELS.find((item) => item.id === runtimeChannel)?.hint}
                       </p>
                     </Card>
+
+                    {repoProfile ? (
+                      <Card className="p-6">
+                        <div className="flex flex-wrap items-center justify-between gap-4">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">Repo profile</p>
+                            <p className="mt-2 text-lg font-semibold text-zinc-900">
+                              {repoProfileStack?.name ?? repoProfile.stackId} · {repoProfile.tools.length} tools
+                            </p>
+                          </div>
+                          <span className="text-xs text-zinc-400">{repoProfile.sources.join(", ")}</span>
+                        </div>
+                        {repoProfile.notes.length ? (
+                          <div className="mt-3 space-y-2 text-sm text-zinc-600">
+                            {repoProfile.notes.map((note) => (
+                              <p key={note}>• {note}</p>
+                            ))}
+                          </div>
+                        ) : null}
+                        {repoProfile.services.length ? (
+                          <div className="mt-4">
+                            <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">Services</p>
+                            <div className="mt-2 flex flex-wrap gap-2 text-xs text-zinc-600">
+                              {repoProfile.services.map((service) => (
+                                <span
+                                  key={service}
+                                  className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1"
+                                >
+                                  {service}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+                        {repoProfile.envKeys.length ? (
+                          <div className="mt-4">
+                            <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">Env vars</p>
+                            <div className="mt-2 flex flex-wrap gap-2 text-xs text-zinc-600">
+                              {repoProfile.envKeys.slice(0, 10).map((key) => (
+                                <span
+                                  key={key}
+                                  className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1"
+                                >
+                                  {key}
+                                </span>
+                              ))}
+                              {repoProfile.envKeys.length > 10 ? (
+                                <span className="text-xs text-zinc-400">
+                                  +{repoProfile.envKeys.length - 10} more
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+                        ) : null}
+                      </Card>
+                    ) : null}
 
                     {activeCaseTemplate?.notes ? (
                       <Card className="p-6">
@@ -1077,6 +1251,118 @@ export default function Home() {
 
           </AnimatePresence>
         </div>
+
+        <section className="mt-12 space-y-4">
+          {caseTemplateLibrary.length ? (
+            <Card className="p-5">
+              <details className="group" name="app-case-library">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-zinc-900">App case library</p>
+                  <span className="text-xs text-zinc-500 transition-colors group-open:text-zinc-700">
+                    {caseTemplateLibrary.length} templates · Expand
+                  </span>
+                </summary>
+                <div className="mt-4 space-y-3">
+                  {caseTemplateLibrary.map((template) => {
+                    const templateStack = stacks.find((item) => item.id === template.stackId);
+                    const templateOS = operatingSystems.find((item) => item.id === template.osId);
+                    const hasNotes = Boolean(
+                      template.notes?.summary || template.notes?.links?.length
+                    );
+                    return (
+                      <div
+                        key={template.id}
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 px-4 py-3 text-sm"
+                      >
+                        <div>
+                          <p className="font-semibold text-zinc-900">{template.name}</p>
+                          <p className="text-xs text-zinc-500">{template.description}</p>
+                          <p className="text-xs text-zinc-500">
+                            {template.category} · {templateStack?.name ?? template.stackId} ·{" "}
+                            {templateOS?.name ?? template.osId} · {template.tools.length} tools ·{" "}
+                            {template.runtimeChannel.toUpperCase()}
+                            {hasNotes ? " · Notes included" : ""}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleApplyCaseTemplate(template)}
+                          >
+                            Use case
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </details>
+            </Card>
+          ) : null}
+
+          <Card className="p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-semibold text-zinc-900">Repo-aware profile</p>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Paste repo files to auto-pick a stack, tools, and setup notes.
+                </p>
+              </div>
+              <span className="text-xs text-zinc-400">Local-only analysis</span>
+            </div>
+            <div className="mt-4 grid gap-3">
+              <textarea
+                rows={4}
+                placeholder="package.json (optional)"
+                value={repoPackageJson}
+                onChange={(event) => setRepoPackageJson(event.target.value)}
+                className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-xs text-zinc-700 outline-none focus:border-zinc-400"
+              />
+              <textarea
+                rows={3}
+                placeholder="docker-compose.yml (optional)"
+                value={repoDockerCompose}
+                onChange={(event) => setRepoDockerCompose(event.target.value)}
+                className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-xs text-zinc-700 outline-none focus:border-zinc-400"
+              />
+              <textarea
+                rows={3}
+                placeholder=".env.example (optional)"
+                value={repoEnvExample}
+                onChange={(event) => setRepoEnvExample(event.target.value)}
+                className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-xs text-zinc-700 outline-none focus:border-zinc-400"
+              />
+            </div>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <Button size="sm" variant="outline" onClick={handleAnalyzeRepo}>
+                Analyze repo
+              </Button>
+              <span className="text-xs text-zinc-400">
+                Nothing is uploaded. Everything stays in your browser.
+              </span>
+            </div>
+            {repoProfileStatus === "error" ? (
+              <p className="mt-3 text-xs text-rose-500">
+                Add a valid package.json or select a stack before analyzing.
+              </p>
+            ) : repoProfileStatus === "applied" ? (
+              <p className="mt-3 text-xs text-emerald-600">Repo profile applied.</p>
+            ) : null}
+            {repoProfile ? (
+              <div className="mt-4 rounded-xl border border-zinc-200 bg-zinc-50/50 px-4 py-3 text-xs text-zinc-600">
+                <p className="font-semibold text-zinc-800">
+                  Detected {repoProfileStack?.name ?? repoProfile.stackId} · {repoProfile.tools.length} tools
+                </p>
+                <p className="mt-1 text-zinc-500">
+                  Sources: {repoProfile.sources.join(", ")}
+                  {repoProfile.services.length ? ` · Services: ${repoProfile.services.join(", ")}` : ""}
+                  {repoProfile.envKeys.length ? ` · Env vars: ${repoProfile.envKeys.length}` : ""}
+                </p>
+              </div>
+            ) : null}
+          </Card>
+        </section>
       </main>
       <Footer />
     </div>

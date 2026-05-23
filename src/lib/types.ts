@@ -110,3 +110,12 @@ export type CaseTemplate = {
   notes?: TemplateNotes;
   checklist?: CaseChecklistItem[];
 };
+
+export type RepoProfile = {
+  stackId: StackId;
+  tools: ToolId[];
+  notes: string[];
+  services: string[];
+  envKeys: string[];
+  sources: string[];
+};

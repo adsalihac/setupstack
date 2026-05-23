@@ -3,6 +3,7 @@ import type {
   CaseChecklistItem,
   OSId,
   PreflightCheck,
+  RepoProfile,
   RuntimeChannel,
   SetupSection,
   Stack,
@@ -207,6 +208,34 @@ function formatChecklistPlain(title: string, items?: CaseChecklistItem[]) {
     .join("\n\n")}`;
 }
 
+function formatRepoProfileMarkdown(profile?: RepoProfile) {
+  if (!profile) return "";
+  const sources = profile.sources.length ? profile.sources.join(", ") : "repo files";
+  const services = profile.services.length
+    ? `\n\n**Services:** ${profile.services.join(", ")}`
+    : "";
+  const envKeys = profile.envKeys.length
+    ? `\n\n**Env vars:**\n${profile.envKeys.map((key) => `- ${key}`).join("\n")}`
+    : "";
+  const notes = profile.notes.length
+    ? `\n\n**Notes:**\n${profile.notes.map((note) => `- ${note}`).join("\n")}`
+    : "";
+  return `## Repo profile\nAuto-detected from ${sources}.${services}${envKeys}${notes}`;
+}
+
+function formatRepoProfilePlain(profile?: RepoProfile) {
+  if (!profile) return "";
+  const sources = profile.sources.length ? profile.sources.join(", ") : "repo files";
+  const services = profile.services.length ? `\n\nServices: ${profile.services.join(", ")}` : "";
+  const envKeys = profile.envKeys.length
+    ? `\n\nEnv vars:\n${profile.envKeys.map((key) => `- ${key}`).join("\n")}`
+    : "";
+  const notes = profile.notes.length
+    ? `\n\nNotes:\n${profile.notes.map((note) => `- ${note}`).join("\n")}`
+    : "";
+  return `## Repo profile\nAuto-detected from ${sources}.${services}${envKeys}${notes}`;
+}
+
 export function buildMarkdownExport({
   stackName,
   osName,
@@ -217,6 +246,7 @@ export function buildMarkdownExport({
   preflightChecks,
   caseNotes,
   caseChecklist,
+  repoProfile,
 }: {
   stackName: string;
   osName: string;
@@ -227,6 +257,7 @@ export function buildMarkdownExport({
   preflightChecks?: PreflightCheck[];
   caseNotes?: TemplateNotes;
   caseChecklist?: CaseChecklistItem[];
+  repoProfile?: RepoProfile;
 }) {
   const toolList = tools.length
     ? tools.map((tool) => `- ${tool.name}`).join("\n")
@@ -252,7 +283,14 @@ export function buildMarkdownExport({
 
   const caseNotesBlock = formatNotesMarkdown("Case notes", caseNotes);
   const caseChecklistBlock = formatChecklistMarkdown("Case checklist", caseChecklist);
-  const guideBody = [caseNotesBlock, caseChecklistBlock, preflightMarkdown, sectionMarkdown]
+  const repoProfileBlock = formatRepoProfileMarkdown(repoProfile);
+  const guideBody = [
+    repoProfileBlock,
+    caseNotesBlock,
+    caseChecklistBlock,
+    preflightMarkdown,
+    sectionMarkdown,
+  ]
     .filter(Boolean)
     .join("\n\n");
   const runtimeLine = runtimeLabel ? `\n**Runtime channel:** ${runtimeLabel}` : "";
@@ -272,6 +310,7 @@ export function buildGuideCopy({
   preflightChecks,
   caseNotes,
   caseChecklist,
+  repoProfile,
 }: {
   stackName: string;
   osName: string;
@@ -285,6 +324,7 @@ export function buildGuideCopy({
   preflightChecks?: PreflightCheck[];
   caseNotes?: TemplateNotes;
   caseChecklist?: CaseChecklistItem[];
+  repoProfile?: RepoProfile;
 }) {
   const toolList = tools.length
     ? tools.map((tool) => `- ${tool.name}`).join("\n")
@@ -327,12 +367,14 @@ export function buildGuideCopy({
 
   const caseNotesBlock = formatNotesPlain("Case notes", caseNotes);
   const caseChecklistBlock = formatChecklistPlain("Case checklist", caseChecklist);
+  const repoProfileBlock = formatRepoProfilePlain(repoProfile);
   return [
     "# SetupStack Guide",
     `**Stack:** ${stackName}\n**OS:** ${osName}${
       runtimeLabel ? `\n**Runtime channel:** ${runtimeLabel}` : ""
     }\n**Estimated setup time:** ${estimatedTime}`,
     `## Selected tools\n${toolList}`,
+    repoProfileBlock,
     caseNotesBlock,
     caseChecklistBlock,
     installBlock,
