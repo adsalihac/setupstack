@@ -16,13 +16,14 @@ import { ToolCard } from "@/components/ToolCard";
 import { TroubleshootingSection } from "@/components/TroubleshootingSection";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import {
+  caseTemplates as caseTemplateLibrary,
   operatingSystems,
   stackToolMap,
   stacks,
   toolLookup,
   troubleshootingGuides,
 } from "@/lib/data";
-import type { OSId, RuntimeChannel, StackId, ToolId } from "@/lib/types";
+import type { CaseTemplate, OSId, RuntimeChannel, StackId, ToolId } from "@/lib/types";
 import {
   buildGuideCopy,
   buildInstallScripts,
@@ -88,6 +89,7 @@ export default function Home() {
   );
   const [presetName, setPresetName] = useState("");
   const [presetStatus, setPresetStatus] = useState<"idle" | "saved" | "error">("idle");
+  const [activeCaseTemplateId, setActiveCaseTemplateId] = useState<string | null>(null);
   const { value: presets, setValue: setPresets } = useLocalStorage<Preset[]>(
     "setupstack-presets",
     []
@@ -103,6 +105,11 @@ export default function Home() {
   const stackTools = useMemo(
     () => (stack ? stackToolMap[stack.id].map((id) => toolLookup[id]) : []),
     [stack]
+  );
+
+  const activeCaseTemplate = useMemo(
+    () => caseTemplateLibrary.find((template) => template.id === activeCaseTemplateId) ?? null,
+    [activeCaseTemplateId]
   );
 
   const filteredTools = useMemo(() => {
@@ -152,6 +159,8 @@ export default function Home() {
     [os, selectedToolObjects, stack]
   );
 
+  const caseChecklist = activeCaseTemplate?.checklist ?? [];
+
   const installLabel =
     INSTALL_OPTIONS.find((item) => item.id === installOS)?.label ?? "Install";
   const installCommands = installScripts[installOS].length
@@ -193,6 +202,7 @@ export default function Home() {
 
   const handleSelectStack = (id: StackId) => {
     setSelectedStackId(id);
+    setActiveCaseTemplateId(null);
     const autoOS = detectedOS ?? null;
     setSelectedOS(autoOS);
     setInstallOS(autoOS ?? "macos");
@@ -205,6 +215,7 @@ export default function Home() {
 
   const handleSelectOS = (id: OSId) => {
     setSelectedOS(id);
+    setActiveCaseTemplateId(null);
     setInstallOS(id);
     setPrefilledOS(false);
     setSelectedTools([]);
@@ -216,6 +227,7 @@ export default function Home() {
     setSelectedTools((prev) =>
       prev.includes(toolId) ? prev.filter((id) => id !== toolId) : [...prev, toolId]
     );
+    setActiveCaseTemplateId(null);
   };
 
   const handleReset = () => {
@@ -229,6 +241,7 @@ export default function Home() {
     setRuntimeChannel("lts");
     setPrefilledOS(false);
     setPresetName("");
+    setActiveCaseTemplateId(null);
   };
 
   const toggleStep = (stepId: string) => {
@@ -251,6 +264,8 @@ export default function Home() {
       estimatedTime,
       runtimeLabel,
       preflightChecks,
+      caseNotes: activeCaseTemplate?.notes,
+      caseChecklist,
     });
 
     try {
@@ -281,6 +296,8 @@ export default function Home() {
       troubleshooting,
       runtimeLabel,
       preflightChecks,
+      caseNotes: activeCaseTemplate?.notes,
+      caseChecklist,
     });
     try {
       await copyToClipboard(payload);
@@ -317,7 +334,24 @@ export default function Home() {
     setPresetStatus("saved");
   };
 
+  const handleApplyCaseTemplate = (template: CaseTemplate) => {
+    const availableTools = stackToolMap[template.stackId];
+    const filteredTools = template.tools.filter((toolId) => availableTools.includes(toolId));
+    const resolvedOS = detectedOS ?? template.osId;
+    setSelectedStackId(template.stackId);
+    setSelectedOS(resolvedOS);
+    setInstallOS(resolvedOS);
+    setSelectedTools(filteredTools);
+    setRuntimeChannel(template.runtimeChannel ?? "lts");
+    setCompletedSteps([]);
+    setSearch("");
+    setPrefilledOS(false);
+    setActiveCaseTemplateId(template.id);
+    goToStep(4);
+  };
+
   const handleApplyPreset = (preset: Preset) => {
+    setActiveCaseTemplateId(null);
     setSelectedStackId(preset.stackId);
     setSelectedOS(preset.osId);
     setInstallOS(preset.osId);
@@ -522,6 +556,53 @@ export default function Home() {
                     />
                   ))}
                 </div>
+                {caseTemplateLibrary.length ? (
+                  <Card className="mt-8 p-5">
+                    <details className="group" name="app-case-library">
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+                        <p className="text-sm font-semibold text-zinc-900">App case library</p>
+                        <span className="text-xs text-zinc-500 transition-colors group-open:text-zinc-700">
+                          {caseTemplateLibrary.length} templates · Expand
+                        </span>
+                      </summary>
+                      <div className="mt-4 space-y-3">
+                        {caseTemplateLibrary.map((template) => {
+                          const templateStack = stacks.find((item) => item.id === template.stackId);
+                          const templateOS = operatingSystems.find((item) => item.id === template.osId);
+                          const hasNotes = Boolean(
+                            template.notes?.summary || template.notes?.links?.length
+                          );
+                          return (
+                            <div
+                              key={template.id}
+                              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 px-4 py-3 text-sm"
+                            >
+                              <div>
+                                <p className="font-semibold text-zinc-900">{template.name}</p>
+                                <p className="text-xs text-zinc-500">{template.description}</p>
+                                <p className="text-xs text-zinc-500">
+                                  {template.category} · {templateStack?.name ?? template.stackId} ·{" "}
+                                  {templateOS?.name ?? template.osId} · {template.tools.length} tools ·{" "}
+                                  {template.runtimeChannel.toUpperCase()}
+                                  {hasNotes ? " · Notes included" : ""}
+                                </p>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleApplyCaseTemplate(template)}
+                                >
+                                  Use case
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </details>
+                  </Card>
+                ) : null}
               </motion.section>
             )}
 
@@ -730,6 +811,69 @@ export default function Home() {
                         {RUNTIME_CHANNELS.find((item) => item.id === runtimeChannel)?.hint}
                       </p>
                     </Card>
+
+                    {activeCaseTemplate?.notes ? (
+                      <Card className="p-6">
+                        <div className="flex flex-wrap items-center justify-between gap-4">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">Case notes</p>
+                            <p className="mt-2 text-lg font-semibold text-zinc-900">
+                              {activeCaseTemplate.name}
+                            </p>
+                          </div>
+                          <span className="text-xs text-zinc-400">{activeCaseTemplate.category}</span>
+                        </div>
+                        <p className="mt-3 text-sm text-zinc-600">
+                          {activeCaseTemplate.notes.summary}
+                        </p>
+                        {activeCaseTemplate.notes.links?.length ? (
+                          <div className="mt-4 space-y-2 text-sm text-zinc-600">
+                            {activeCaseTemplate.notes.links.map((link) => (
+                              <a
+                                key={`${link.label}-${link.url}`}
+                                href={link.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center justify-between rounded-lg border border-zinc-200 px-3 py-2 transition hover:border-zinc-300 hover:text-zinc-900"
+                              >
+                                <span className="font-semibold text-zinc-700">{link.label}</span>
+                                <span className="text-xs text-zinc-400">↗</span>
+                              </a>
+                            ))}
+                          </div>
+                        ) : null}
+                      </Card>
+                    ) : null}
+
+                    {caseChecklist.length ? (
+                      <Card className="p-6">
+                        <div className="flex flex-wrap items-center justify-between gap-4">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">Case checklist</p>
+                            <p className="mt-2 text-lg font-semibold text-zinc-900">
+                              Validate the workflow
+                            </p>
+                          </div>
+                        </div>
+                        <div className="mt-4 space-y-4">
+                          {caseChecklist.map((item) => (
+                            <div
+                              key={item.id}
+                              className="rounded-2xl border border-zinc-200 bg-white p-4"
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-sm font-semibold text-zinc-900">{item.title}</p>
+                                <span className="text-xs text-zinc-400">Case</span>
+                              </div>
+                              <p className="mt-1 text-xs text-zinc-500">{item.description}</p>
+                              <div className="mt-3">
+                                <CommandBlock label="Checklist" commands={item.commands} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </Card>
+                    ) : null}
 
                     {preflightChecks.length ? (
                       <Card className="p-6">

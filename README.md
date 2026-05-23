@@ -20,6 +20,7 @@ SetupStack currently supports:
 - Markdown export and browser print/PDF export
 - Progress tracking for setup steps
 - Saved presets for reusing common configurations
+- App case templates for frontend, backend, full-stack, and app-based workflows
 - LocalStorage persistence for selections and presets
 - Search with `Ctrl/Cmd + K` to jump into tool filtering quickly
 
@@ -99,4 +100,3 @@ Before opening a PR, run `npm run lint` and `npm run build`.
 ## License
 
 MIT © [adsalihac](https://github.com/adsalihac)
-

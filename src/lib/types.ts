@@ -15,9 +15,17 @@ export type ToolId =
   | "android-studio"
   | "xcode"
   | "postman"
+  | "insomnia"
   | "docker"
+  | "postgres"
+  | "redis"
   | "git"
   | "expo-orbit"
+  | "eslint-prettier"
+  | "tailwind"
+  | "storybook"
+  | "vitest"
+  | "playwright"
   | "warp"
   | "github-desktop";
 
@@ -71,4 +79,34 @@ export type TroubleshootingIssue = {
 export type TroubleshootingGuide = {
   stackId: StackId;
   issues: TroubleshootingIssue[];
+};
+
+export type TemplateLink = {
+  label: string;
+  url: string;
+};
+
+export type TemplateNotes = {
+  summary: string;
+  links?: TemplateLink[];
+};
+
+export type CaseChecklistItem = {
+  id: string;
+  title: string;
+  description: string;
+  commands: string[];
+};
+
+export type CaseTemplate = {
+  id: string;
+  name: string;
+  description: string;
+  category: "Frontend" | "Backend" | "Full-stack" | "App-based";
+  stackId: StackId;
+  osId: OSId;
+  tools: ToolId[];
+  runtimeChannel: RuntimeChannel;
+  notes?: TemplateNotes;
+  checklist?: CaseChecklistItem[];
 };

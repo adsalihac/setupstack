@@ -1,5 +1,14 @@
 import type { TroubleshootingItem } from "./data";
-import type { OSId, PreflightCheck, RuntimeChannel, SetupSection, Stack, Tool } from "./types";
+import type {
+  CaseChecklistItem,
+  OSId,
+  PreflightCheck,
+  RuntimeChannel,
+  SetupSection,
+  Stack,
+  TemplateNotes,
+  Tool,
+} from "./types";
 import {
   androidEnvCommands,
   baseSystemCommands,
@@ -158,6 +167,46 @@ export function buildSetupSections({
   return sections;
 }
 
+function formatNotesMarkdown(title: string, notes?: TemplateNotes) {
+  if (!notes) return "";
+  const summary = notes.summary.trim() || "Notes and references.";
+  const links = notes.links ?? [];
+  const linksBlock = links.length
+    ? `\n\n${links.map((link) => `- [${link.label}](${link.url})`).join("\n")}`
+    : "";
+  return `## ${title}\n${summary}${linksBlock}`;
+}
+
+function formatNotesPlain(title: string, notes?: TemplateNotes) {
+  if (!notes) return "";
+  const summary = notes.summary.trim() || "Notes and references.";
+  const links = notes.links ?? [];
+  const linksBlock = links.length
+    ? `\n${links.map((link) => `- ${link.label}: ${link.url}`).join("\n")}`
+    : "";
+  return `## ${title}\n${summary}${linksBlock}`;
+}
+
+function formatChecklistMarkdown(title: string, items?: CaseChecklistItem[]) {
+  if (!items || !items.length) return "";
+  return `## ${title}\n${items
+    .map((item) => {
+      const commands = item.commands.join("\n");
+      return `### ${item.title}\n${item.description}\n\n\`\`\`bash\n${commands}\n\`\`\``;
+    })
+    .join("\n\n")}`;
+}
+
+function formatChecklistPlain(title: string, items?: CaseChecklistItem[]) {
+  if (!items || !items.length) return "";
+  return `## ${title}\n${items
+    .map((item) => {
+      const commands = item.commands.join("\n");
+      return `### ${item.title}\n${item.description}\n\n\`\`\`bash\n${commands}\n\`\`\``;
+    })
+    .join("\n\n")}`;
+}
+
 export function buildMarkdownExport({
   stackName,
   osName,
@@ -166,6 +215,8 @@ export function buildMarkdownExport({
   estimatedTime,
   runtimeLabel,
   preflightChecks,
+  caseNotes,
+  caseChecklist,
 }: {
   stackName: string;
   osName: string;
@@ -174,6 +225,8 @@ export function buildMarkdownExport({
   estimatedTime: string;
   runtimeLabel?: string;
   preflightChecks?: PreflightCheck[];
+  caseNotes?: TemplateNotes;
+  caseChecklist?: CaseChecklistItem[];
 }) {
   const toolList = tools.length
     ? tools.map((tool) => `- ${tool.name}`).join("\n")
@@ -197,8 +250,13 @@ export function buildMarkdownExport({
           .join("\n\n")}`
       : "";
 
+  const caseNotesBlock = formatNotesMarkdown("Case notes", caseNotes);
+  const caseChecklistBlock = formatChecklistMarkdown("Case checklist", caseChecklist);
+  const guideBody = [caseNotesBlock, caseChecklistBlock, preflightMarkdown, sectionMarkdown]
+    .filter(Boolean)
+    .join("\n\n");
   const runtimeLine = runtimeLabel ? `\n**Runtime channel:** ${runtimeLabel}` : "";
-  return `# SetupStack Guide\n\n**Stack:** ${stackName}\n**OS:** ${osName}${runtimeLine}\n**Estimated setup time:** ${estimatedTime}\n\n## Selected tools\n${toolList}\n\n${preflightMarkdown}\n\n${sectionMarkdown}\n`;
+  return `# SetupStack Guide\n\n**Stack:** ${stackName}\n**OS:** ${osName}${runtimeLine}\n**Estimated setup time:** ${estimatedTime}\n\n## Selected tools\n${toolList}\n\n${guideBody}\n`;
 }
 
 export function buildGuideCopy({
@@ -212,6 +270,8 @@ export function buildGuideCopy({
   troubleshooting,
   runtimeLabel,
   preflightChecks,
+  caseNotes,
+  caseChecklist,
 }: {
   stackName: string;
   osName: string;
@@ -223,6 +283,8 @@ export function buildGuideCopy({
   troubleshooting?: TroubleshootingItem[] | null;
   runtimeLabel?: string;
   preflightChecks?: PreflightCheck[];
+  caseNotes?: TemplateNotes;
+  caseChecklist?: CaseChecklistItem[];
 }) {
   const toolList = tools.length
     ? tools.map((tool) => `- ${tool.name}`).join("\n")
@@ -263,12 +325,16 @@ export function buildGuideCopy({
           .join("\n\n")}`
       : "";
 
+  const caseNotesBlock = formatNotesPlain("Case notes", caseNotes);
+  const caseChecklistBlock = formatChecklistPlain("Case checklist", caseChecklist);
   return [
     "# SetupStack Guide",
     `**Stack:** ${stackName}\n**OS:** ${osName}${
       runtimeLabel ? `\n**Runtime channel:** ${runtimeLabel}` : ""
     }\n**Estimated setup time:** ${estimatedTime}`,
     `## Selected tools\n${toolList}`,
+    caseNotesBlock,
+    caseChecklistBlock,
     installBlock,
     preflightBlock,
     sectionMarkdown,
