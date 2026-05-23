@@ -586,10 +586,7 @@ export default function Home() {
                   <p className="mt-1 font-medium text-zinc-700">40+ tools and modern stacks</p>
                 </div>
               </div>
-               <Button className="mt-8" onClick={() => {
-                document.getElementById("stacks")?.scrollIntoView({ behavior: "smooth" });
-                searchRef.current?.focus();
-              }}>
+               <Button className="mt-8" onClick={() => goToStep(1)}>
                 Get Started
               </Button>
             </div>
