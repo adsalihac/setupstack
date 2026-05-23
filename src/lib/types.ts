@@ -1,4 +1,5 @@
 export type OSId = "macos" | "windows" | "linux";
+export type RuntimeChannel = "lts" | "latest";
 
 export type StackId =
   | "expo"
@@ -45,6 +46,14 @@ export type Tool = {
 };
 
 export type SetupSection = {
+  id: string;
+  title: string;
+  description: string;
+  commands: string[];
+  tips?: string[];
+};
+
+export type PreflightCheck = {
   id: string;
   title: string;
   description: string;

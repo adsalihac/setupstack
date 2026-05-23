@@ -2,10 +2,12 @@ import { forwardRef } from "react";
 import type { InputHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
-type SearchBarProps = InputHTMLAttributes<HTMLInputElement>;
+type SearchBarProps = InputHTMLAttributes<HTMLInputElement> & {
+  hint?: string;
+};
 
 export const SearchBar = forwardRef<HTMLInputElement, SearchBarProps>(
-  ({ className, ...props }, ref) => {
+  ({ className, hint = "CTRL K", ...props }, ref) => {
     return (
       <div
         className={cn(
@@ -14,7 +16,7 @@ export const SearchBar = forwardRef<HTMLInputElement, SearchBarProps>(
         )}
       >
         <span className="text-[10px] font-semibold tracking-[0.2em] text-zinc-400">
-          CTRL K
+          {hint}
         </span>
         <input
           ref={ref}

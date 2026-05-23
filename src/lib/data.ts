@@ -266,9 +266,9 @@ export const stackCommands: Record<StackId, Record<OSId, string[]>> = {
     ],
   },
   python: {
-    macos: ["brew install python", "python3 -m venv .venv"],
-    windows: ["winget install Python.Python.3.12", "py -3 -m venv .venv"],
-    linux: ["sudo apt install -y python3 python3-venv", "python3 -m venv .venv"],
+    macos: ["brew install python@3.12", "python3.12 -m venv .venv"],
+    windows: ["winget install Python.Python.3.12", "py -3.12 -m venv .venv"],
+    linux: ["sudo apt install -y python3.12 python3.12-venv", "python3.12 -m venv .venv"],
   },
   go: {
     macos: ["brew install go", "go env GOPATH"],
@@ -286,6 +286,111 @@ export const stackCommands: Record<StackId, Record<OSId, string[]>> = {
       "rustc --version",
     ],
   },
+};
+
+export const stackLatestCommands: Partial<Record<StackId, Record<OSId, string[]>>> = {
+  expo: {
+    macos: [
+      "brew install node",
+      "npm create expo@latest my-expo-app",
+      "cd my-expo-app",
+    ],
+    windows: [
+      "winget install OpenJS.NodeJS",
+      "npm create expo@latest my-expo-app",
+      "cd my-expo-app",
+    ],
+    linux: [
+      "curl -fsSL https://deb.nodesource.com/setup_current.x | sudo -E bash -",
+      "sudo apt install -y nodejs",
+      "npm create expo@latest my-expo-app",
+      "cd my-expo-app",
+    ],
+  },
+  "react-native": {
+    macos: [
+      "brew install node watchman",
+      "npx react-native@latest init MyApp",
+      "cd MyApp",
+    ],
+    windows: [
+      "winget install OpenJS.NodeJS",
+      "npx react-native@latest init MyApp",
+      "cd MyApp",
+    ],
+    linux: [
+      "sudo apt install -y nodejs npm",
+      "npx react-native@latest init MyApp",
+      "cd MyApp",
+    ],
+  },
+  node: {
+    macos: ["brew install node", "node -v"],
+    windows: ["winget install OpenJS.NodeJS", "node -v"],
+    linux: [
+      "curl -fsSL https://deb.nodesource.com/setup_current.x | sudo -E bash -",
+      "sudo apt install -y nodejs",
+      "node -v",
+    ],
+  },
+  python: {
+    macos: ["brew install python", "python3 -m venv .venv"],
+    windows: ["winget install Python.Python.3.13", "py -3.13 -m venv .venv"],
+    linux: ["sudo apt install -y python3 python3-venv", "python3 -m venv .venv"],
+  },
+};
+
+/** Android SDK environment setup commands per OS, for mobile stacks */
+export const androidEnvCommands: Record<OSId, string[]> = {
+  macos: [
+    "# Add to ~/.zprofile or ~/.zshrc (bash: ~/.bash_profile or ~/.bashrc)",
+    "echo 'export ANDROID_HOME=$HOME/Library/Android/sdk' >> ~/.zshrc",
+    "echo 'export PATH=$PATH:$ANDROID_HOME/emulator' >> ~/.zshrc",
+    "echo 'export PATH=$PATH:$ANDROID_HOME/platform-tools' >> ~/.zshrc",
+    "source ~/.zshrc",
+    "# Verify Android SDK tools are on PATH",
+    "adb --version",
+  ],
+  windows: [
+    "# Run in PowerShell as Administrator",
+    '[System.Environment]::SetEnvironmentVariable("ANDROID_HOME", "$env:LOCALAPPDATA\\Android\\Sdk", "User")',
+    '[System.Environment]::SetEnvironmentVariable("PATH", "$env:PATH;$env:LOCALAPPDATA\\Android\\Sdk\\emulator;$env:LOCALAPPDATA\\Android\\Sdk\\platform-tools", "User")',
+    "# Restart PowerShell to reload PATH",
+    "adb --version",
+  ],
+  linux: [
+    "# Add to ~/.bashrc or ~/.bash_profile",
+    "echo 'export ANDROID_HOME=$HOME/Android/Sdk' >> ~/.bashrc",
+    "echo 'export PATH=$PATH:$ANDROID_HOME/emulator' >> ~/.bashrc",
+    "echo 'export PATH=$PATH:$ANDROID_HOME/platform-tools' >> ~/.bashrc",
+    "source ~/.bashrc",
+    "# Verify Android SDK tools are on PATH",
+    "adb --version",
+  ],
+};
+
+/** Zulu JDK 17 install commands (required for Expo and React Native on macOS) */
+export const zuluJdkCommands: Record<OSId, string[]> = {
+  macos: [
+    "# Install Zulu JDK 17 (required for React Native / Expo Android builds)",
+    "brew install --cask zulu@17",
+    "echo 'export JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home' >> ~/.zshrc",
+    "source ~/.zshrc",
+    "java -version",
+  ],
+  windows: [
+    "# Install Eclipse Temurin JDK 17 (LTS) via winget",
+    "winget install EclipseAdoptium.Temurin.17.JDK",
+    "# JAVA_HOME is set automatically by the installer",
+    "java -version",
+  ],
+  linux: [
+    "# Install OpenJDK 17",
+    "sudo apt install -y openjdk-17-jdk",
+    "echo 'export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))' >> ~/.bashrc",
+    "source ~/.bashrc",
+    "java -version",
+  ],
 };
 
 export const baseSystemCommands: Record<OSId, string[]> = {
@@ -308,9 +413,9 @@ export const baseSystemCommands: Record<OSId, string[]> = {
 };
 
 export const verificationCommands: Record<StackId, string[]> = {
-  expo: ["node -v", "npm -v", "npx expo --version"],
-  "react-native": ["node -v", "npm -v", "npx react-native --version"],
-  flutter: ["flutter --version", "dart --version"],
+  expo: ["node -v", "npm -v", "npx expo --version", "java -version", "adb --version"],
+  "react-native": ["node -v", "npm -v", "npx react-native --version", "java -version", "adb --version"],
+  flutter: ["flutter --version", "dart --version", "adb --version"],
   node: ["node -v", "npm -v"],
   python: ["python3 --version", "pip3 --version"],
   go: ["go version"],
@@ -686,4 +791,3 @@ export const troubleshootingGuides: Record<StackId, TroubleshootingItem[]> = {
     },
   ],
 };
-

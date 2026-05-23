@@ -7,9 +7,10 @@ type OSCardProps = {
   os: OSOption;
   selected: boolean;
   onSelect: (id: OSOption["id"]) => void;
+  tag?: string;
 };
 
-export function OSCard({ os, selected, onSelect }: OSCardProps) {
+export function OSCard({ os, selected, onSelect, tag }: OSCardProps) {
   const Icon = osIcons[os.id];
   return (
     <motion.button
@@ -36,12 +37,18 @@ export function OSCard({ os, selected, onSelect }: OSCardProps) {
         >
           <Icon size={22} />
         </div>
-        <div>
-          <p className="text-sm font-semibold text-zinc-900">{os.name}</p>
+        <div className="flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-zinc-900">{os.name}</p>
+            {tag && (
+              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                {tag}
+              </span>
+            )}
+          </div>
           <p className="text-sm text-zinc-500">{os.description}</p>
         </div>
       </div>
     </motion.button>
   );
 }
-

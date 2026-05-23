@@ -14,6 +14,7 @@ import { SetupSection } from "@/components/SetupSection";
 import { StackCard } from "@/components/StackCard";
 import { ToolCard } from "@/components/ToolCard";
 import { TroubleshootingSection } from "@/components/TroubleshootingSection";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import {
   operatingSystems,
   stackToolMap,
@@ -21,12 +22,16 @@ import {
   toolLookup,
   troubleshootingGuides,
 } from "@/lib/data";
-import type { OSId, StackId, ToolId } from "@/lib/types";
+import type { OSId, RuntimeChannel, StackId, ToolId } from "@/lib/types";
 import {
   buildGuideCopy,
   buildInstallScripts,
+  buildMarkdownExport,
+  buildPreflightChecks,
   buildSetupSections,
   copyToClipboard,
+  detectOS,
+  detectShell,
   formatMinutes,
   getBaseEstimate,
   sumEstimates,
@@ -45,10 +50,25 @@ const INSTALL_OPTIONS = [
   { id: "linux", label: "Apt" },
 ] as const;
 
+const RUNTIME_CHANNELS: Array<{ id: RuntimeChannel; label: string; hint: string }> = [
+  { id: "lts", label: "LTS", hint: "Stable versions recommended for teams." },
+  { id: "latest", label: "Latest", hint: "Newest releases for early adopters." },
+];
+
 const variants = {
   enter: (dir: number) => ({ opacity: 0, x: dir * 48 }),
   center: { opacity: 1, x: 0 },
   exit: (dir: number) => ({ opacity: 0, x: dir * -48 }),
+};
+
+type Preset = {
+  id: string;
+  name: string;
+  stackId: StackId;
+  osId: OSId;
+  tools: ToolId[];
+  runtimeChannel: RuntimeChannel;
+  createdAt: number;
 };
 
 export default function Home() {
@@ -60,8 +80,22 @@ export default function Home() {
   const [completedSteps, setCompletedSteps] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [installOS, setInstallOS] = useState<OSId>("macos");
+  const [runtimeChannel, setRuntimeChannel] = useState<RuntimeChannel>("lts");
+  const [prefilledOS, setPrefilledOS] = useState(false);
   const [guideCopyStatus, setGuideCopyStatus] = useState<"idle" | "copied" | "error">("idle");
+  const [markdownExportStatus, setMarkdownExportStatus] = useState<"idle" | "done" | "error">(
+    "idle"
+  );
+  const [presetName, setPresetName] = useState("");
+  const [presetStatus, setPresetStatus] = useState<"idle" | "saved" | "error">("idle");
+  const { value: presets, setValue: setPresets } = useLocalStorage<Preset[]>(
+    "setupstack-presets",
+    []
+  );
   const searchRef = useRef<HTMLInputElement | null>(null);
+
+  const detectedOS = useMemo(() => detectOS(), []);
+  const detectedShell = useMemo(() => detectShell(detectedOS), [detectedOS]);
 
   const stack = stacks.find((s) => s.id === selectedStackId) ?? null;
   const os = operatingSystems.find((o) => o.id === selectedOS) ?? null;
@@ -90,9 +124,14 @@ export default function Home() {
   const setupSections = useMemo(
     () =>
       stack && os
-        ? buildSetupSections({ stack, osId: os.id, tools: selectedToolObjects })
+        ? buildSetupSections({
+            stack,
+            osId: os.id,
+            tools: selectedToolObjects,
+            runtimeChannel,
+          })
         : [],
-    [os, selectedToolObjects, stack]
+    [os, runtimeChannel, selectedToolObjects, stack]
   );
 
   const troubleshooting = useMemo(
@@ -103,6 +142,14 @@ export default function Home() {
   const installScripts = useMemo(
     () => buildInstallScripts(selectedToolObjects),
     [selectedToolObjects]
+  );
+
+  const preflightChecks = useMemo(
+    () =>
+      stack && os
+        ? buildPreflightChecks({ osId: os.id, stackId: stack.id, tools: selectedToolObjects })
+        : [],
+    [os, selectedToolObjects, stack]
   );
 
   const installLabel =
@@ -117,11 +164,27 @@ export default function Home() {
     return formatMinutes(sumEstimates(stack, selectedToolObjects, base));
   }, [os, selectedToolObjects, stack]);
 
+  const runtimeLabel = runtimeChannel === "latest" ? "Latest" : "LTS";
+  const searchHint = detectedOS === "macos" ? "⌘ K" : "CTRL K";
+  const inlineIssues = troubleshooting?.slice(0, 2) ?? [];
+
   useEffect(() => {
     if (guideCopyStatus === "idle") return;
     const timeout = window.setTimeout(() => setGuideCopyStatus("idle"), 1500);
     return () => window.clearTimeout(timeout);
   }, [guideCopyStatus]);
+
+  useEffect(() => {
+    if (markdownExportStatus === "idle") return;
+    const timeout = window.setTimeout(() => setMarkdownExportStatus("idle"), 1500);
+    return () => window.clearTimeout(timeout);
+  }, [markdownExportStatus]);
+
+  useEffect(() => {
+    if (presetStatus === "idle") return;
+    const timeout = window.setTimeout(() => setPresetStatus("idle"), 1500);
+    return () => window.clearTimeout(timeout);
+  }, [presetStatus]);
 
   const goToStep = (next: 1 | 2 | 3 | 4) => {
     setDirection(next > currentStep ? 1 : -1);
@@ -130,7 +193,10 @@ export default function Home() {
 
   const handleSelectStack = (id: StackId) => {
     setSelectedStackId(id);
-    setSelectedOS(null);
+    const autoOS = detectedOS ?? null;
+    setSelectedOS(autoOS);
+    setInstallOS(autoOS ?? "macos");
+    setPrefilledOS(Boolean(autoOS));
     setSelectedTools([]);
     setCompletedSteps([]);
     setSearch("");
@@ -140,6 +206,7 @@ export default function Home() {
   const handleSelectOS = (id: OSId) => {
     setSelectedOS(id);
     setInstallOS(id);
+    setPrefilledOS(false);
     setSelectedTools([]);
     setCompletedSteps([]);
     goToStep(3);
@@ -159,6 +226,9 @@ export default function Home() {
     setSelectedTools([]);
     setCompletedSteps([]);
     setSearch("");
+    setRuntimeChannel("lts");
+    setPrefilledOS(false);
+    setPresetName("");
   };
 
   const toggleStep = (stepId: string) => {
@@ -169,6 +239,33 @@ export default function Home() {
 
   const handleExport = () => {
     window.print();
+  };
+
+  const handleExportMarkdown = () => {
+    if (!stack || !os) return;
+    const markdown = buildMarkdownExport({
+      stackName: stack.name,
+      osName: os.name,
+      tools: selectedToolObjects,
+      sections: setupSections,
+      estimatedTime,
+      runtimeLabel,
+      preflightChecks,
+    });
+
+    try {
+      const blob = new Blob([markdown], { type: "text/markdown" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "setupstack-guide.md";
+      link.click();
+      window.URL.revokeObjectURL(url);
+      setMarkdownExportStatus("done");
+    } catch (error) {
+      console.error("Failed to export markdown", error);
+      setMarkdownExportStatus("error");
+    }
   };
 
   const handleCopyGuide = async () => {
@@ -182,6 +279,8 @@ export default function Home() {
       installLabel,
       installCommands,
       troubleshooting,
+      runtimeLabel,
+      preflightChecks,
     });
     try {
       await copyToClipboard(payload);
@@ -190,6 +289,48 @@ export default function Home() {
       console.error("Failed to copy guide", error);
       setGuideCopyStatus("error");
     }
+  };
+
+  const handleSavePreset = () => {
+    if (!stack || !os) return;
+    const fallbackName = `${stack.name} on ${os.name}`;
+    const name = presetName.trim() || fallbackName;
+    if (!name) {
+      setPresetStatus("error");
+      return;
+    }
+    const id =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}`;
+    const newPreset: Preset = {
+      id,
+      name,
+      stackId: stack.id,
+      osId: os.id,
+      tools: selectedTools,
+      runtimeChannel,
+      createdAt: Date.now(),
+    };
+    setPresets((prev) => [newPreset, ...prev]);
+    setPresetName("");
+    setPresetStatus("saved");
+  };
+
+  const handleApplyPreset = (preset: Preset) => {
+    setSelectedStackId(preset.stackId);
+    setSelectedOS(preset.osId);
+    setInstallOS(preset.osId);
+    setSelectedTools(preset.tools);
+    setRuntimeChannel(preset.runtimeChannel ?? "lts");
+    setCompletedSteps([]);
+    setSearch("");
+    setPrefilledOS(false);
+    goToStep(4);
+  };
+
+  const handleDeletePreset = (presetId: string) => {
+    setPresets((prev) => prev.filter((preset) => preset.id !== presetId));
   };
 
   const maxUnlocked: number =
@@ -335,6 +476,42 @@ export default function Home() {
                     Choose the developer stack you want to configure. Selecting a stack moves to the next step.
                   </p>
                 </div>
+                {presets.length ? (
+                  <Card className="mt-6 p-5">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-zinc-900">Saved presets</p>
+                      <span className="text-xs text-zinc-500">{presets.length} saved</span>
+                    </div>
+                    <div className="mt-4 space-y-3">
+                      {presets.map((preset) => {
+                        const presetStack = stacks.find((item) => item.id === preset.stackId);
+                        const presetOS = operatingSystems.find((item) => item.id === preset.osId);
+                        return (
+                          <div
+                            key={preset.id}
+                            className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 px-4 py-3 text-sm"
+                          >
+                            <div>
+                              <p className="font-semibold text-zinc-900">{preset.name}</p>
+                              <p className="text-xs text-zinc-500">
+                                {presetStack?.name ?? preset.stackId} · {presetOS?.name ?? preset.osId} ·{" "}
+                                {preset.tools.length} tools · {preset.runtimeChannel.toUpperCase()}
+                              </p>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button size="sm" variant="outline" onClick={() => handleApplyPreset(preset)}>
+                                Load
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={() => handleDeletePreset(preset.id)}>
+                                Delete
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </Card>
+                ) : null}
                 <div className="mt-8 grid gap-4 md:grid-cols-2">
                   {stacks.map((item) => (
                     <StackCard
@@ -365,6 +542,14 @@ export default function Home() {
                   <p className="text-sm text-zinc-600">
                     Setup Stack adapts install scripts for your operating system.
                   </p>
+                  {detectedOS && detectedShell ? (
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+                      <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 font-semibold text-emerald-700">
+                        Detected {operatingSystems.find((item) => item.id === detectedOS)?.name ?? detectedOS}
+                      </span>
+                      <span>Shell: {detectedShell}</span>
+                    </div>
+                  ) : null}
                 </div>
                 <div className="mt-8 grid gap-4 md:grid-cols-3">
                   {operatingSystems.map((item) => (
@@ -373,10 +558,11 @@ export default function Home() {
                       os={item}
                       selected={item.id === selectedOS}
                       onSelect={handleSelectOS}
+                      tag={prefilledOS && item.id === detectedOS ? "Detected" : undefined}
                     />
                   ))}
                 </div>
-                <div className="mt-8">
+                <div className="mt-8 flex items-center justify-between">
                   <button
                     type="button"
                     onClick={() => goToStep(1)}
@@ -384,6 +570,11 @@ export default function Home() {
                   >
                     ← Back
                   </button>
+                  {selectedOS ? (
+                    <Button size="sm" variant="outline" onClick={() => goToStep(3)}>
+                      Continue
+                    </Button>
+                  ) : null}
                 </div>
               </motion.section>
             )}
@@ -410,22 +601,40 @@ export default function Home() {
                   <div className="w-full max-w-sm">
                     <SearchBar
                       ref={searchRef}
+                      hint={searchHint}
                       placeholder="Search tools"
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                     />
                   </div>
                 </div>
-                <div className="mt-8 grid gap-4 md:grid-cols-2">
-                  {filteredTools.map((tool) => (
-                    <ToolCard
-                      key={tool.id}
-                      tool={tool}
-                      selected={selectedTools.includes(tool.id)}
-                      onToggle={toggleTool}
-                    />
-                  ))}
-                </div>
+                {filteredTools.length ? (
+                  <div className="mt-8 grid gap-4 md:grid-cols-2">
+                    {filteredTools.map((tool) => (
+                      <ToolCard
+                        key={tool.id}
+                        tool={tool}
+                        selected={selectedTools.includes(tool.id)}
+                        onToggle={toggleTool}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <Card className="mt-8 p-6">
+                    <p className="text-sm font-semibold text-zinc-900">No tools match that search.</p>
+                    <p className="mt-2 text-sm text-zinc-600">
+                      Try searching for{" "}
+                      {stackTools.slice(0, 3).map((tool, index) => (
+                        <span key={tool.id} className="font-semibold text-zinc-800">
+                          {tool.name}
+                          {index < Math.min(2, stackTools.length - 1) ? ", " : ""}
+                        </span>
+                      ))}
+                      .
+                    </p>
+                    <p className="mt-2 text-xs text-zinc-400">Tip: Press {searchHint} to focus search.</p>
+                  </Card>
+                )}
                 <div className="mt-8 flex items-center justify-between">
                   <button
                     type="button"
@@ -473,6 +682,20 @@ export default function Home() {
                           <p className="mt-2 text-2xl font-semibold text-zinc-900">{estimatedTime}</p>
                         </div>
                         <div className="flex gap-3">
+                          <Button variant="outline" size="sm" onClick={handleCopyGuide}>
+                            {guideCopyStatus === "copied"
+                              ? "Copied"
+                              : guideCopyStatus === "error"
+                              ? "Copy failed"
+                              : "Copy guide"}
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={handleExportMarkdown}>
+                            {markdownExportStatus === "done"
+                              ? "Exported"
+                              : markdownExportStatus === "error"
+                              ? "Export failed"
+                              : "Export Markdown"}
+                          </Button>
                           <Button variant="outline" size="sm" onClick={handleExport}>
                             Export PDF
                           </Button>
@@ -480,6 +703,63 @@ export default function Home() {
                       </div>
                     </Card>
 
+                    <Card className="p-6">
+                      <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">Runtime channel</p>
+                          <p className="mt-2 text-lg font-semibold text-zinc-900">{runtimeLabel}</p>
+                        </div>
+                        <div className="flex gap-2 rounded-full border border-zinc-200 bg-white p-1">
+                          {RUNTIME_CHANNELS.map((item) => (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => setRuntimeChannel(item.id)}
+                              className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                                runtimeChannel === item.id
+                                  ? "bg-zinc-900 text-white"
+                                  : "text-zinc-500 hover:text-zinc-900"
+                              }`}
+                            >
+                              {item.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <p className="mt-3 text-xs text-zinc-500">
+                        {RUNTIME_CHANNELS.find((item) => item.id === runtimeChannel)?.hint}
+                      </p>
+                    </Card>
+
+                    {preflightChecks.length ? (
+                      <Card className="p-6">
+                        <div className="flex flex-wrap items-center justify-between gap-4">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">Preflight checklist</p>
+                            <p className="mt-2 text-lg font-semibold text-zinc-900">
+                              Catch blockers before installs
+                            </p>
+                          </div>
+                        </div>
+                        <div className="mt-4 space-y-4">
+                          {preflightChecks.map((check) => (
+                            <div
+                              key={check.id}
+                              className="rounded-2xl border border-zinc-200 bg-white p-4"
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-sm font-semibold text-zinc-900">{check.title}</p>
+                                <span className="text-xs text-zinc-400">Preflight</span>
+                              </div>
+                              <p className="mt-1 text-xs text-zinc-500">{check.description}</p>
+                              <div className="mt-3">
+                                <CommandBlock label="Check" commands={check.commands} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </Card>
+                    ) : null}
                     <Card className="p-6">
                       <div className="flex flex-wrap items-center justify-between gap-4">
                         <div>
@@ -517,12 +797,13 @@ export default function Home() {
                           id={`section-${section.id}`}
                           index={index + 1}
                           total={setupSections.length}
+                          inlineIssues={section.id === "stack" ? inlineIssues : undefined}
                         />
                       ))}
                     </div>
 
                     {troubleshooting && (
-                      <div className="border-t border-zinc-100 pt-10">
+                      <div id="troubleshooting" className="border-t border-zinc-100 pt-10">
                         <div className="mb-6 flex flex-col gap-2">
                           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-zinc-400">
                             Troubleshooting
@@ -558,6 +839,67 @@ export default function Home() {
                       completed={completedSteps}
                       onToggle={toggleStep}
                     />
+                    <Card className="p-5">
+                      <p className="text-sm font-semibold text-zinc-900">Presets</p>
+                      <p className="mt-2 text-xs text-zinc-500">
+                        Save this setup to reuse or share with your team.
+                      </p>
+                      <div className="mt-4 space-y-3">
+                        <input
+                          type="text"
+                          placeholder={`${stack.name} on ${os.name}`}
+                          value={presetName}
+                          onChange={(event) => setPresetName(event.target.value)}
+                          className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-xs text-zinc-700 outline-none focus:border-zinc-400"
+                        />
+                        <Button size="sm" variant="outline" onClick={handleSavePreset} className="w-full">
+                          {presetStatus === "saved"
+                            ? "Saved"
+                            : presetStatus === "error"
+                            ? "Name required"
+                            : "Save preset"}
+                        </Button>
+                      </div>
+                      {presets.length ? (
+                        <div className="mt-4 space-y-2 text-xs text-zinc-600">
+                          {presets.slice(0, 3).map((preset) => {
+                            const presetStack = stacks.find((item) => item.id === preset.stackId);
+                            const presetOS = operatingSystems.find((item) => item.id === preset.osId);
+                            return (
+                              <div
+                                key={preset.id}
+                                className="flex items-center justify-between gap-2 rounded-lg border border-zinc-200 px-3 py-2"
+                              >
+                                <div>
+                                  <p className="text-sm font-semibold text-zinc-900">{preset.name}</p>
+                                  <p className="text-[11px] text-zinc-500">
+                                    {presetStack?.name ?? preset.stackId} · {presetOS?.name ?? preset.osId}
+                                  </p>
+                                </div>
+                                <div className="flex gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleApplyPreset(preset)}
+                                    className="text-xs font-semibold text-zinc-600 hover:text-zinc-900"
+                                  >
+                                    Load
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeletePreset(preset.id)}
+                                    className="text-xs text-zinc-400 hover:text-zinc-900"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="mt-4 text-xs text-zinc-400">No presets saved yet.</p>
+                      )}
+                    </Card>
                     <Card className="p-5">
                       <p className="text-sm font-semibold text-zinc-900">Selected stack</p>
                       <p className="mt-2 text-sm text-zinc-600">{stack.name} on {os.name}</p>
