@@ -5,34 +5,15 @@
   fill="none"
   xmlns="http://www.w3.org/2000/svg"
 >
-  <rect
-    x="8"
-    y="10"
-    width="36"
-    height="36"
-    rx="10"
-    fill="#ffffff"
-    stroke="#0f0f0f"
-    stroke-width="2"
-  />
-  <rect
-    x="14"
-    y="16"
-    width="36"
-    height="36"
-    rx="10"
-    fill="#f4f4f5"
-    stroke="#0f0f0f"
-    stroke-width="2"
-  />
-  <rect
-    x="20"
-    y="22"
-    width="36"
-    height="36"
-    rx="10"
-    fill="#e4e4e7"
-    stroke="#0f0f0f"
-    stroke-width="2"
-  />
+  <rect x="4" y="4" width="56" height="56" rx="14" fill="#18181b" />
+  <g transform="translate(14 14) scale(2)">
+    <path
+      d="M3 5.5L7 9l-4 3.5"
+      stroke="#ffffff"
+      stroke-width="1.6"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <path d="M9 13h6" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round" />
+  </g>
 </svg>
