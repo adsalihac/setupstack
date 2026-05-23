@@ -135,13 +135,6 @@ export default function Home() {
     return () => window.removeEventListener("keydown", handleShortcut);
   }, []);
 
-  const scrollToSection = (id: string) => {
-    document.getElementById(id)?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-  };
-
   const handleExport = (type: "markdown" | "pdf") => {
     if (type === "pdf") {
       window.print();
