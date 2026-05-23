@@ -29,15 +29,22 @@ import {
   sumEstimates,
 } from "@/lib/utils";
 
-const fadeUp = {
-  initial: { opacity: 0, y: 16 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -8 },
-  transition: { duration: 0.25, ease: "easeOut" as const },
+const STEPS = [
+  { id: 1, label: "Stack" },
+  { id: 2, label: "OS" },
+  { id: 3, label: "Tools" },
+  { id: 4, label: "Setup Guide" },
+] as const;
+
+const variants = {
+  enter: (dir: number) => ({ opacity: 0, x: dir * 48 }),
+  center: { opacity: 1, x: 0 },
+  exit: (dir: number) => ({ opacity: 0, x: dir * -48 }),
 };
 
 export default function Home() {
-  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
+  const [direction, setDirection] = useState<1 | -1>(1);
   const [selectedStackId, setSelectedStackId] = useState<StackId | null>(null);
   const [selectedOS, setSelectedOS] = useState<OSId | null>(null);
   const [selectedTools, setSelectedTools] = useState<ToolId[]>([]);
@@ -89,13 +96,18 @@ export default function Home() {
     return formatMinutes(sumEstimates(stack, selectedToolObjects, base));
   }, [os, selectedToolObjects, stack]);
 
+  const goToStep = (next: 1 | 2 | 3 | 4) => {
+    setDirection(next > currentStep ? 1 : -1);
+    setCurrentStep(next);
+  };
+
   const handleSelectStack = (id: StackId) => {
     setSelectedStackId(id);
     setSelectedOS(null);
     setSelectedTools([]);
     setCompletedSteps([]);
     setSearch("");
-    setCurrentStep(2);
+    goToStep(2);
   };
 
   const handleSelectOS = (id: OSId) => {
@@ -103,7 +115,7 @@ export default function Home() {
     setInstallOS(id);
     setSelectedTools([]);
     setCompletedSteps([]);
-    setCurrentStep(3);
+    goToStep(3);
   };
 
   const toggleTool = (toolId: ToolId) => {
@@ -113,6 +125,7 @@ export default function Home() {
   };
 
   const handleReset = () => {
+    setDirection(-1);
     setCurrentStep(1);
     setSelectedStackId(null);
     setSelectedOS(null);
@@ -129,10 +142,7 @@ export default function Home() {
 
   const handleExport = (type: "markdown" | "pdf") => {
     if (!stack || !os) return;
-    if (type === "pdf") {
-      window.print();
-      return;
-    }
+    if (type === "pdf") { window.print(); return; }
     const markdown = buildMarkdownExport({
       stackName: stack.name,
       osName: os.name,
@@ -149,6 +159,12 @@ export default function Home() {
     window.URL.revokeObjectURL(url);
   };
 
+  const maxUnlocked: number =
+    selectedTools.length > 0 ? 4
+    : selectedOS ? 3
+    : selectedStackId ? 2
+    : 1;
+
   return (
     <div className="min-h-screen bg-white">
       <Navbar />
@@ -159,15 +175,12 @@ export default function Home() {
           <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,#f4f4f5,transparent_60%)]" />
           <div className="grid gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-zinc-400">
-                SetupStack
-              </p>
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-zinc-400">SetupStack</p>
               <h1 className="mt-4 text-4xl font-semibold tracking-tight text-zinc-950 sm:text-5xl">
                 Set Up Your Developer Machine Faster
               </h1>
               <p className="mt-5 text-lg leading-7 text-zinc-600">
-                Generate clean setup guides for your development stack, operating
-                system, and tools.
+                Generate clean setup guides for your development stack, operating system, and tools.
               </p>
               <div className="mt-10 flex flex-wrap gap-6 text-sm text-zinc-500">
                 <div>
@@ -216,34 +229,34 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Step progress bar */}
-        <div className="mb-12 flex items-center gap-2">
-          {([1, 2, 3, 4] as const).map((step) => {
-            const reached = step <= 3 ? currentStep >= step : currentStep >= 3 && selectedTools.length > 0;
+        {/* Stepper */}
+        <div className="mb-8 flex items-center gap-1">
+          {STEPS.map((step, i) => {
+            const unlocked = step.id <= maxUnlocked;
+            const active = currentStep === step.id;
             return (
-              <div key={step} className="flex items-center gap-2">
-                <div
-                  className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition-colors ${
-                    reached
-                      ? "bg-zinc-900 text-white"
-                      : "border border-zinc-200 text-zinc-400"
+              <div key={step.id} className="flex items-center gap-1">
+                <button
+                  type="button"
+                  disabled={!unlocked}
+                  onClick={() => unlocked ? goToStep(step.id) : undefined}
+                  className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold transition-all ${
+                    active
+                      ? "bg-zinc-900 text-white shadow-sm"
+                      : unlocked
+                      ? "border border-zinc-200 text-zinc-600 hover:border-zinc-400 hover:text-zinc-900"
+                      : "border border-zinc-100 text-zinc-300 cursor-not-allowed"
                   }`}
                 >
-                  {step}
-                </div>
-                <span
-                  className={`hidden text-xs sm:block transition-colors ${
-                    reached ? "text-zinc-700 font-medium" : "text-zinc-400"
-                  }`}
-                >
-                  {step === 1 ? "Stack" : step === 2 ? "OS" : step === 3 ? "Tools" : "Setup Guide"}
-                </span>
-                {step < 4 && (
-                  <div
-                    className={`mx-1 h-px w-8 transition-colors ${
-                      (step < 3 ? currentStep > step : currentStep >= 3) ? "bg-zinc-400" : "bg-zinc-200"
-                    }`}
-                  />
+                  <span className={`flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold ${
+                    active ? "bg-white/20 text-white" : unlocked ? "bg-zinc-100 text-zinc-600" : "bg-zinc-50 text-zinc-300"
+                  }`}>
+                    {step.id}
+                  </span>
+                  <span className="hidden sm:inline">{step.label}</span>
+                </button>
+                {i < STEPS.length - 1 && (
+                  <div className={`h-px w-6 transition-colors ${unlocked && step.id < maxUnlocked ? "bg-zinc-300" : "bg-zinc-100"}`} />
                 )}
               </div>
             );
@@ -259,220 +272,282 @@ export default function Home() {
           )}
         </div>
 
-        {/* Step 1 — Stack */}
-        <AnimatePresence mode="wait">
-          {currentStep >= 1 && (
-            <motion.section key="step1" id="stacks" className="scroll-mt-24 pb-12" {...fadeUp}>
-              <div className="flex flex-col gap-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-zinc-400">Step 1</p>
-                <h2 className="text-2xl font-semibold text-zinc-900">Select your stack</h2>
-                <p className="text-sm text-zinc-600">
-                  Choose the developer stack you want to configure. Selecting a stack reveals the next step.
-                </p>
-              </div>
-              <div className="mt-8 grid gap-4 md:grid-cols-2">
-                {stacks.map((item) => (
-                  <StackCard
-                    key={item.id}
-                    stack={item}
-                    selected={item.id === selectedStackId}
-                    onSelect={handleSelectStack}
-                  />
-                ))}
-              </div>
-            </motion.section>
-          )}
-        </AnimatePresence>
+        {/* Slider */}
+        <div className="overflow-hidden">
+          <AnimatePresence mode="wait" custom={direction}>
 
-        {/* Step 2 — OS */}
-        <AnimatePresence>
-          {currentStep >= 2 && (
-            <motion.section key="step2" id="os" className="scroll-mt-24 py-12" {...fadeUp}>
-              <div className="flex flex-col gap-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-zinc-400">Step 2</p>
-                <h2 className="text-2xl font-semibold text-zinc-900">Select your OS</h2>
-                <p className="text-sm text-zinc-600">
-                  SetupStack adapts install scripts for your operating system. Selecting an OS reveals your tools.
-                </p>
-              </div>
-              <div className="mt-8 grid gap-4 md:grid-cols-3">
-                {operatingSystems.map((item) => (
-                  <OSCard
-                    key={item.id}
-                    os={item}
-                    selected={item.id === selectedOS}
-                    onSelect={handleSelectOS}
-                  />
-                ))}
-              </div>
-            </motion.section>
-          )}
-        </AnimatePresence>
-
-        {/* Step 3 — Tools */}
-        <AnimatePresence>
-          {currentStep >= 3 && (
-            <motion.section key="step3" id="tools" className="scroll-mt-24 py-12" {...fadeUp}>
-              <div className="flex flex-wrap items-end justify-between gap-6">
+            {currentStep === 1 && (
+              <motion.section
+                key="step1"
+                custom={direction}
+                variants={variants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
+                className="pb-12"
+              >
                 <div className="flex flex-col gap-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-zinc-400">Step 3</p>
-                  <h2 className="text-2xl font-semibold text-zinc-900">Select development tools</h2>
+                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-zinc-400">Step 1 of 4</p>
+                  <h2 className="text-2xl font-semibold text-zinc-900">Select your stack</h2>
                   <p className="text-sm text-zinc-600">
-                    Pick the tools for your stack, then generate your personalised guide.
+                    Choose the developer stack you want to configure. Selecting a stack moves to the next step.
                   </p>
                 </div>
-                <div className="w-full max-w-sm">
-                  <SearchBar
-                    ref={searchRef}
-                    placeholder="Search tools"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
+                <div className="mt-8 grid gap-4 md:grid-cols-2">
+                  {stacks.map((item) => (
+                    <StackCard
+                      key={item.id}
+                      stack={item}
+                      selected={item.id === selectedStackId}
+                      onSelect={handleSelectStack}
+                    />
+                  ))}
                 </div>
-              </div>
-              <div className="mt-8 grid gap-4 md:grid-cols-2">
-                {filteredTools.map((tool) => (
-                  <ToolCard
-                    key={tool.id}
-                    tool={tool}
-                    selected={selectedTools.includes(tool.id)}
-                    onToggle={toggleTool}
-                  />
-                ))}
-              </div>
-            </motion.section>
-          )}
-        </AnimatePresence>
+              </motion.section>
+            )}
 
-        {/* Step 4 — Setup Guide */}
-        <AnimatePresence>
-          {currentStep >= 3 && stack && os && selectedTools.length > 0 && (
-            <motion.section key="step4" id="setup" className="scroll-mt-24 py-12" {...fadeUp}>
-              <div className="flex flex-col gap-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-zinc-400">Step 4</p>
-                <h2 className="text-2xl font-semibold text-zinc-900">Generated setup guide</h2>
-                <p className="text-sm text-zinc-600">
-                  Your personalised guide for <strong>{stack.name}</strong> on <strong>{os.name}</strong>.
-                </p>
-              </div>
-              <div className="mt-8 grid gap-10 lg:grid-cols-[1fr_320px]">
-                <div className="space-y-6">
-                  <Card className="p-6">
-                    <div className="flex flex-wrap items-center justify-between gap-4">
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">Estimated setup time</p>
-                        <p className="mt-2 text-2xl font-semibold text-zinc-900">{estimatedTime}</p>
-                      </div>
-                      <div className="flex gap-3">
-                        <Button variant="secondary" size="sm" onClick={() => handleExport("markdown")}>
-                          Export Markdown
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleExport("pdf")}>
-                          Export PDF
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
+            {currentStep === 2 && (
+              <motion.section
+                key="step2"
+                custom={direction}
+                variants={variants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
+                className="py-12"
+              >
+                <div className="flex flex-col gap-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-zinc-400">Step 2 of 4</p>
+                  <h2 className="text-2xl font-semibold text-zinc-900">Select your OS</h2>
+                  <p className="text-sm text-zinc-600">
+                    SetupStack adapts install scripts for your operating system.
+                  </p>
+                </div>
+                <div className="mt-8 grid gap-4 md:grid-cols-3">
+                  {operatingSystems.map((item) => (
+                    <OSCard
+                      key={item.id}
+                      os={item}
+                      selected={item.id === selectedOS}
+                      onSelect={handleSelectOS}
+                    />
+                  ))}
+                </div>
+                <div className="mt-8">
+                  <button
+                    type="button"
+                    onClick={() => goToStep(1)}
+                    className="text-xs text-zinc-400 hover:text-zinc-700 transition-colors"
+                  >
+                    ← Back
+                  </button>
+                </div>
+              </motion.section>
+            )}
 
-                  <Card className="p-6">
-                    <div className="flex flex-wrap items-center justify-between gap-4">
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">Install script generator</p>
-                        <p className="mt-2 text-lg font-semibold text-zinc-900">Brew, Winget, and Apt scripts</p>
-                      </div>
-                      <div className="flex gap-2 rounded-full border border-zinc-200 bg-white p-1">
-                        {(
-                          [
-                            { id: "macos", label: "Brew" },
-                            { id: "windows", label: "Winget" },
-                            { id: "linux", label: "Apt" },
-                          ] as const
-                        ).map((item) => (
-                          <button
-                            key={item.id}
-                            type="button"
-                            onClick={() => setInstallOS(item.id)}
-                            className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-                              installOS === item.id
-                                ? "bg-zinc-900 text-white"
-                                : "text-zinc-500 hover:text-zinc-900"
-                            }`}
-                          >
-                            {item.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="mt-4">
-                      <CommandBlock
-                        label="Install script"
-                        commands={
-                          installScripts[installOS].length
-                            ? installScripts[installOS]
-                            : ['echo "Select tools to generate scripts"']
-                        }
-                      />
-                    </div>
-                  </Card>
-
-                  <div className="space-y-6">
-                    {setupSections.map((section, index) => (
-                      <SetupSection
-                        key={section.id}
-                        section={section}
-                        id={`section-${section.id}`}
-                        index={index + 1}
-                        total={setupSections.length}
-                      />
-                    ))}
+            {currentStep === 3 && (
+              <motion.section
+                key="step3"
+                custom={direction}
+                variants={variants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
+                className="py-12"
+              >
+                <div className="flex flex-wrap items-end justify-between gap-6">
+                  <div className="flex flex-col gap-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.3em] text-zinc-400">Step 3 of 4</p>
+                    <h2 className="text-2xl font-semibold text-zinc-900">Select development tools</h2>
+                    <p className="text-sm text-zinc-600">
+                      Pick the tools for your stack, then view your generated guide.
+                    </p>
+                  </div>
+                  <div className="w-full max-w-sm">
+                    <SearchBar
+                      ref={searchRef}
+                      placeholder="Search tools"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                    />
                   </div>
                 </div>
+                <div className="mt-8 grid gap-4 md:grid-cols-2">
+                  {filteredTools.map((tool) => (
+                    <ToolCard
+                      key={tool.id}
+                      tool={tool}
+                      selected={selectedTools.includes(tool.id)}
+                      onToggle={toggleTool}
+                    />
+                  ))}
+                </div>
+                <div className="mt-8 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => goToStep(2)}
+                    className="text-xs text-zinc-400 hover:text-zinc-700 transition-colors"
+                  >
+                    ← Back
+                  </button>
+                  {selectedTools.length > 0 && (
+                    <Button onClick={() => goToStep(4)}>
+                      View Setup Guide
+                      <span className="ml-2 rounded-full bg-white/20 px-2 py-0.5 text-xs">
+                        {selectedTools.length} tools
+                      </span>
+                    </Button>
+                  )}
+                </div>
+              </motion.section>
+            )}
 
-                <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
-                  <Card className="p-5">
-                    <p className="text-sm font-semibold text-zinc-900">Setup navigation</p>
-                    <div className="mt-4 space-y-2 text-sm text-zinc-600">
-                      {setupSections.map((section) => (
-                        <a
+            {currentStep === 4 && stack && os && (
+              <motion.section
+                key="step4"
+                custom={direction}
+                variants={variants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
+                className="py-12"
+              >
+                <div className="flex flex-col gap-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-zinc-400">Step 4 of 4</p>
+                  <h2 className="text-2xl font-semibold text-zinc-900">Generated setup guide</h2>
+                  <p className="text-sm text-zinc-600">
+                    Your personalised guide for <strong>{stack.name}</strong> on <strong>{os.name}</strong>.
+                  </p>
+                </div>
+                <div className="mt-8 grid gap-10 lg:grid-cols-[1fr_320px]">
+                  <div className="space-y-6">
+                    <Card className="p-6">
+                      <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">Estimated setup time</p>
+                          <p className="mt-2 text-2xl font-semibold text-zinc-900">{estimatedTime}</p>
+                        </div>
+                        <div className="flex gap-3">
+                          <Button variant="secondary" size="sm" onClick={() => handleExport("markdown")}>
+                            Export Markdown
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => handleExport("pdf")}>
+                            Export PDF
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+
+                    <Card className="p-6">
+                      <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">Install script generator</p>
+                          <p className="mt-2 text-lg font-semibold text-zinc-900">Brew, Winget, and Apt scripts</p>
+                        </div>
+                        <div className="flex gap-2 rounded-full border border-zinc-200 bg-white p-1">
+                          {(
+                            [
+                              { id: "macos", label: "Brew" },
+                              { id: "windows", label: "Winget" },
+                              { id: "linux", label: "Apt" },
+                            ] as const
+                          ).map((item) => (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => setInstallOS(item.id)}
+                              className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                                installOS === item.id ? "bg-zinc-900 text-white" : "text-zinc-500 hover:text-zinc-900"
+                              }`}
+                            >
+                              {item.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="mt-4">
+                        <CommandBlock
+                          label="Install script"
+                          commands={
+                            installScripts[installOS].length
+                              ? installScripts[installOS]
+                              : ['echo "Select tools to generate scripts"']
+                          }
+                        />
+                      </div>
+                    </Card>
+
+                    <div className="space-y-6">
+                      {setupSections.map((section, index) => (
+                        <SetupSection
                           key={section.id}
-                          href={`#section-${section.id}`}
-                          className="flex items-center justify-between rounded-lg border border-zinc-200 px-3 py-2 transition hover:border-zinc-300 hover:text-zinc-900"
-                        >
-                          <span>{section.title}</span>
-                          <span className="text-xs text-zinc-400">→</span>
-                        </a>
+                          section={section}
+                          id={`section-${section.id}`}
+                          index={index + 1}
+                          total={setupSections.length}
+                        />
                       ))}
                     </div>
-                  </Card>
-                  <ProgressTracker
-                    steps={setupSections.map((s) => ({ id: s.id, title: s.title }))}
-                    completed={completedSteps}
-                    onToggle={toggleStep}
-                  />
-                  <Card className="p-5">
-                    <p className="text-sm font-semibold text-zinc-900">Selected stack</p>
-                    <p className="mt-2 text-sm text-zinc-600">{stack.name} on {os.name}</p>
-                    <div className="mt-4 text-xs uppercase tracking-[0.2em] text-zinc-400">Tools selected</div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {selectedToolObjects.length ? (
-                        selectedToolObjects.map((tool) => (
-                          <span
-                            key={tool.id}
-                            className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs text-zinc-600"
+                  </div>
+
+                  <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
+                    <Card className="p-5">
+                      <p className="text-sm font-semibold text-zinc-900">Setup navigation</p>
+                      <div className="mt-4 space-y-2 text-sm text-zinc-600">
+                        {setupSections.map((section) => (
+                          <a
+                            key={section.id}
+                            href={`#section-${section.id}`}
+                            className="flex items-center justify-between rounded-lg border border-zinc-200 px-3 py-2 transition hover:border-zinc-300 hover:text-zinc-900"
                           >
-                            {tool.name}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-xs text-zinc-400">No tools selected.</span>
-                      )}
-                    </div>
-                  </Card>
-                </aside>
-              </div>
-            </motion.section>
-          )}
-        </AnimatePresence>
+                            <span>{section.title}</span>
+                            <span className="text-xs text-zinc-400">→</span>
+                          </a>
+                        ))}
+                      </div>
+                    </Card>
+                    <ProgressTracker
+                      steps={setupSections.map((s) => ({ id: s.id, title: s.title }))}
+                      completed={completedSteps}
+                      onToggle={toggleStep}
+                    />
+                    <Card className="p-5">
+                      <p className="text-sm font-semibold text-zinc-900">Selected stack</p>
+                      <p className="mt-2 text-sm text-zinc-600">{stack.name} on {os.name}</p>
+                      <div className="mt-4 text-xs uppercase tracking-[0.2em] text-zinc-400">Tools selected</div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {selectedToolObjects.length ? (
+                          selectedToolObjects.map((tool) => (
+                            <span
+                              key={tool.id}
+                              className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs text-zinc-600"
+                            >
+                              {tool.name}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-zinc-400">No tools selected.</span>
+                        )}
+                      </div>
+                    </Card>
+                    <button
+                      type="button"
+                      onClick={() => goToStep(3)}
+                      className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-xs font-medium text-zinc-500 hover:border-zinc-300 hover:text-zinc-900 transition-colors"
+                    >
+                      ← Edit tools
+                    </button>
+                  </aside>
+                </div>
+              </motion.section>
+            )}
+
+          </AnimatePresence>
+        </div>
       </main>
       <Footer />
     </div>
