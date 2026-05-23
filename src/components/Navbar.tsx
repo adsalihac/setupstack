@@ -60,9 +60,6 @@ export function Navbar() {
             </svg>
             Contribute
           </a>
-          <Button size="sm" onClick={handleGetStarted}>
-            Get Started
-          </Button>
         </div>
       </div>
     </header>

@@ -173,6 +173,7 @@ export default function Home() {
               <p className="mt-5 text-lg leading-7 text-zinc-600">
                 Generate clean setup guides for your development stack, operating system, and tools.
               </p>
+             
               <div className="mt-10 flex flex-wrap gap-6 text-sm text-zinc-500">
                 <div>
                   <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">Trusted by</p>
@@ -183,7 +184,14 @@ export default function Home() {
                   <p className="mt-1 font-medium text-zinc-700">40+ tools and modern stacks</p>
                 </div>
               </div>
+               <Button className="mt-8" onClick={() => {
+                document.getElementById("stacks")?.scrollIntoView({ behavior: "smooth" });
+                searchRef.current?.focus();
+              }}>
+                Get Started
+              </Button>
             </div>
+            
             <motion.div
               className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-[0_30px_60px_rgba(15,23,42,0.08)]"
               animate={{ y: [0, -8, 0] }}
@@ -221,7 +229,7 @@ export default function Home() {
         </section>
 
         {/* Stepper */}
-        <div className="mb-8 flex items-center gap-1">
+        <div id="stacks" className="mb-8 flex scroll-mt-28 items-center gap-1">
           {STEPS.map((step, i) => {
             const unlocked = step.id <= maxUnlocked;
             const active = currentStep === step.id;
