@@ -170,6 +170,22 @@ export const tools: Tool[] = [
       linux: ["sudo apt install -y warp-terminal"],
     },
   },
+  {
+    id: "github-desktop",
+    name: "GitHub Desktop",
+    description: "Visual Git client for managing repos, branches, and PRs.",
+    category: "Core",
+    estimate: 4,
+    install: {
+      macos: ["brew install --cask github"],
+      windows: ["winget install GitHub.GitHubDesktop"],
+      linux: [
+        "wget -qO - https://apt.packages.shiftkey.dev/gpg.key | gpg --dearmor | sudo tee /usr/share/keyrings/shiftkey-packages.gpg > /dev/null",
+        'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/shiftkey-packages.gpg] https://apt.packages.shiftkey.dev/ubuntu/ any main" | sudo tee /etc/apt/sources.list.d/shiftkey-packages.list',
+        "sudo apt update && sudo apt install github-desktop",
+      ],
+    },
+  },
 ];
 
 export const stackToolMap: Record<StackId, ToolId[]> = {
@@ -180,6 +196,7 @@ export const stackToolMap: Record<StackId, ToolId[]> = {
     "expo-orbit",
     "postman",
     "git",
+    "github-desktop",
     "warp",
   ],
   "react-native": [
@@ -188,13 +205,14 @@ export const stackToolMap: Record<StackId, ToolId[]> = {
     "xcode",
     "postman",
     "git",
+    "github-desktop",
     "warp",
   ],
-  flutter: ["vscode", "android-studio", "xcode", "postman", "git", "warp"],
-  node: ["vscode", "postman", "docker", "git", "warp"],
-  python: ["vscode", "postman", "docker", "git", "warp"],
-  go: ["vscode", "postman", "docker", "git", "warp"],
-  rust: ["vscode", "git", "warp"],
+  flutter: ["vscode", "android-studio", "xcode", "postman", "git", "github-desktop", "warp"],
+  node: ["vscode", "postman", "docker", "git", "github-desktop", "warp"],
+  python: ["vscode", "postman", "docker", "git", "github-desktop", "warp"],
+  go: ["vscode", "postman", "docker", "git", "github-desktop", "warp"],
+  rust: ["vscode", "git", "github-desktop", "warp"],
 };
 
 export const stackCommands: Record<StackId, Record<OSId, string[]>> = {

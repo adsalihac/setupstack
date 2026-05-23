@@ -17,7 +17,8 @@ export type ToolId =
   | "docker"
   | "git"
   | "expo-orbit"
-  | "warp";
+  | "warp"
+  | "github-desktop";
 
 export type Stack = {
   id: StackId;
