@@ -41,7 +41,7 @@ export function Navbar() {
         </div>
         <div className="flex items-center gap-3">
           <a
-            href="https://github.com/adsalihac/setupstack"
+            href="https://github.com/adsalihac/setupstack/fork"
             target="_blank"
             rel="noopener noreferrer"
             className="hidden items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-600 transition hover:border-zinc-300 hover:text-zinc-900 md:flex"
